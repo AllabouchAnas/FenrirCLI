@@ -65,9 +65,6 @@ class TerminalViewModel : ViewModel() {
         val osVersion = android.os.Build.VERSION.RELEASE
         val apiLevel = android.os.Build.VERSION.SDK_INT
         val model = android.os.Build.MODEL
-        
-        // Real Kernel version
-        val kernel = System.getProperty("os.version") ?: "Unknown"
 
         // Real Uptime
         val uptimeMs = android.os.SystemClock.elapsedRealtime()
@@ -110,7 +107,7 @@ class TerminalViewModel : ViewModel() {
         val batteryStr = "$batteryLevel%${if (isCharging) " (charging)" else " (discharging)"}"
 
         // Encode everything in the pipeline string
-        addToHistory("NEOFETCH_BANNER|$osVersion|$apiLevel|$model|$kernel|$uptimeStr|$ramStr|$storageStr|$batteryStr", NordFrost1, type = "neofetch")
+        addToHistory("NEOFETCH_BANNER|$osVersion|$apiLevel|$model|$uptimeStr|$ramStr|$storageStr|$batteryStr", NordFrost1, type = "neofetch")
     }
 
     fun startup(context: Context) {
