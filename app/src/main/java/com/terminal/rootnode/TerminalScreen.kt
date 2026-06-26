@@ -1,6 +1,12 @@
 package com.terminal.rootnode
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -67,6 +73,19 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
     val inlineSuggestion by viewModel.inlineSuggestion.collectAsState()
     var input by remember { mutableStateOf(TextFieldValue("")) }
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+        onResult = { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+                if (!spokenText.isNullOrBlank()) {
+                    input = TextFieldValue(spokenText, selection = TextRange(spokenText.length))
+                    viewModel.onInputChange(spokenText)
+                }
+            }
+        }
+    )
 
     val cursorRect = textLayoutResult?.let { layoutResult ->
         val cursorIndex = input.selection.start
@@ -398,11 +417,25 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                         fontSize = 18.sp,
                                         color = NordFrost1.copy(alpha = glowAlpha)
                                     ),
-                                    modifier = Modifier.clickable {
-                                        input = TextFieldValue("")
-                                        viewModel.onInputChange("")
-                                        focusRequester.requestFocus()
-                                    }
+                                     modifier = Modifier.clickable {
+                                         try {
+                                             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                                 putExtra(
+                                                     RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                                     RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                                                 )
+                                                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault())
+                                                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak a command...")
+                                             }
+                                             speechRecognizerLauncher.launch(intent)
+                                         } catch (e: Exception) {
+                                             Toast.makeText(
+                                                 context,
+                                                 "Speech recognition not supported on this device",
+                                                 Toast.LENGTH_SHORT
+                                             ).show()
+                                         }
+                                     }
                                 )
                             }
                         }
