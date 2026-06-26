@@ -46,6 +46,7 @@ import com.terminal.rootnode.ui.theme.NordFrost1
 import com.terminal.rootnode.ui.theme.NordGreen
 import com.terminal.rootnode.ui.theme.NordNight0
 import com.terminal.rootnode.ui.theme.NordNight3
+import com.terminal.rootnode.ui.theme.NordPurple
 import com.terminal.rootnode.ui.theme.NordSnow0
 import com.terminal.rootnode.ui.theme.NordYellow
 import com.terminal.rootnode.ui.theme.RootNodeTheme
@@ -416,17 +417,26 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
 
 @Composable
 fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
-    // Parse the encoded info: "NEOFETCH_BANNER|osVersion|apiLevel|model"
+    // Parse the encoded info: "NEOFETCH_BANNER|osVersion|apiLevel|model|kernel|uptime|ram|storage|battery"
     val parts = bannerText.split("|")
     val osVersion = parts.getOrNull(1) ?: "?"
     val apiLevel = parts.getOrNull(2) ?: "?"
     val model = parts.getOrNull(3) ?: "?"
+    val kernel = parts.getOrNull(4) ?: "Unknown"
+    val uptime = parts.getOrNull(5) ?: "Unknown"
+    val ram = parts.getOrNull(6) ?: "Unknown"
+    val storage = parts.getOrNull(7) ?: "Unknown"
+    val battery = parts.getOrNull(8) ?: "Unknown"
 
     val infoLines = listOf(
         Triple("OS", "Android $osVersion (API $apiLevel)", NordYellow),
         Triple("DEVICE", model, NordYellow),
         Triple("SHELL", "FenrirCLI v1.0", NordFrost1),
-        Triple("KERNEL", "Linux (Android)", NordFrost1),
+        Triple("KERNEL", kernel, NordFrost1),
+        Triple("UPTIME", uptime, NordFrost1),
+        Triple("RAM", ram, NordYellow),
+        Triple("STORAGE", storage, NordYellow),
+        Triple("BATTERY", battery, NordPurple),
     )
 
     Row(

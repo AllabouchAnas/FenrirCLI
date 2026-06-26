@@ -61,22 +61,62 @@ class TerminalViewModel : ViewModel() {
         // Startup sequence is now handled in initDatabase or a dedicated startup method
     }
 
-    private fun showBanner(osVersion: String, apiLevel: Int, model: String) {
-        // Encode OS info in the text so the UI can display it alongside the wolf art
-        addToHistory("NEOFETCH_BANNER|$osVersion|$apiLevel|$model", NordFrost1, type = "neofetch")
+    private fun showBanner(context: Context) {
+        val osVersion = android.os.Build.VERSION.RELEASE
+        val apiLevel = android.os.Build.VERSION.SDK_INT
+        val model = android.os.Build.MODEL
+        
+        // Real Kernel version
+        val kernel = System.getProperty("os.version") ?: "Unknown"
+
+        // Real Uptime
+        val uptimeMs = android.os.SystemClock.elapsedRealtime()
+        val hours = uptimeMs / (1000 * 60 * 60)
+        val minutes = (uptimeMs / (1000 * 60)) % 60
+        val uptimeStr = if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+
+        // Real RAM Info
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+        val ramStr = if (activityManager != null) {
+            val memoryInfo = android.app.ActivityManager.MemoryInfo()
+            activityManager.getMemoryInfo(memoryInfo)
+            val totalRam = memoryInfo.totalMem / (1024 * 1024 * 1024.0)
+            val availRam = memoryInfo.availMem / (1024 * 1024 * 1024.0)
+            val usedRam = totalRam - availRam
+            val percent = (usedRam / totalRam * 100).toInt()
+            "%.1fG / %.1fG ($percent%)".format(usedRam, totalRam)
+        } else {
+            "Unknown"
+        }
+
+        // Real Storage Info
+        val path = Environment.getDataDirectory()
+        val stat = StatFs(path.path)
+        val blockSize = stat.blockSizeLong
+        val availableBlocks = stat.availableBlocksLong
+        val totalBlocks = stat.blockCountLong
+        val totalStorage = (totalBlocks * blockSize) / (1024 * 1024 * 1024.0)
+        val availStorage = (availableBlocks * blockSize) / (1024 * 1024 * 1024.0)
+        val usedStorage = totalStorage - availStorage
+        val storagePercent = (usedStorage / totalStorage * 100).toInt()
+        val storageStr = "%.1fG / %.1fG ($storagePercent%)".format(usedStorage, totalStorage)
+
+        // Real Battery Info
+        val batteryLevel = getBatteryLevel(context)
+        val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        val batteryStatus = context.registerReceiver(null, ifilter)
+        val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+        val batteryStr = "$batteryLevel%${if (isCharging) " (charging)" else " (discharging)"}"
+
+        // Encode everything in the pipeline string
+        addToHistory("NEOFETCH_BANNER|$osVersion|$apiLevel|$model|$kernel|$uptimeStr|$ramStr|$storageStr|$batteryStr", NordFrost1, type = "neofetch")
     }
 
     fun startup(context: Context) {
         if (_history.value.isEmpty()) {
-            val osVersion = android.os.Build.VERSION.RELEASE
-            val apiLevel = android.os.Build.VERSION.SDK_INT
-            val model = android.os.Build.MODEL
-            showBanner(osVersion, apiLevel, model)
+            showBanner(context)
             viewModelScope.launch {
-                val battery = getBatteryLevel(context)
-                val storage = getStorageInfo()
-                addToHistory("BATT  : $battery%", if (battery < 20) NordRed else NordYellow)
-                addToHistory("DISK  : $storage", NordYellow)
                 addToHistory("------------------------------------------", NordNight3)
                 addToHistory("Type 'help' for available commands.", NordPurple)
             }
@@ -190,8 +230,10 @@ class TerminalViewModel : ViewModel() {
             "help" -> showHelp()
             "ls" -> listApps()
             "sysinfo" -> showSysInfo(context)
+            "neofetch" -> showBanner(context)
             "clear" -> clearHistory(context)
             "alias" -> handleAliasCommand(trimmedCommand)
+            "unalias" -> handleUnaliasCommand(trimmedCommand)
             "open" -> {
                 if (finalParts.size > 1) {
                     val appName = finalParts.drop(1).joinToString(" ")
@@ -221,6 +263,7 @@ class TerminalViewModel : ViewModel() {
         addToHistory("  help            - Show this help message", NordYellow)
         addToHistory("  ls              - List all installed apps", NordYellow)
         addToHistory("  sysinfo         - Show system information", NordYellow)
+        addToHistory("  neofetch        - Show system summary and logo", NordYellow)
         addToHistory("  alias <n>=<c>   - Create an alias (e.g. alias g=Gmail)", NordYellow)
         addToHistory("  unalias <name>  - Remove an alias", NordYellow)
         addToHistory("  clear           - Clear terminal history", NordYellow)
@@ -259,6 +302,24 @@ class TerminalViewModel : ViewModel() {
             aliases.forEach { (name, cmd) -> addToHistory("  $name -> $cmd", NordYellow) }
         } else {
             addToHistory("Invalid alias format. Usage: alias <name>=<command>", NordRed)
+        }
+    }
+
+    private fun handleUnaliasCommand(input: String) {
+        val name = input.removePrefix("unalias").trim()
+        if (name.isEmpty()) {
+            addToHistory("Usage: unalias <name>", NordRed)
+            return
+        }
+        viewModelScope.launch {
+            val alias = db?.aliasDao()?.getByName(name)
+            if (alias != null) {
+                db?.aliasDao()?.delete(alias)
+                aliases.remove(name)
+                addToHistory("Alias removed: $name", NordYellow)
+            } else {
+                addToHistory("Alias not found: $name", NordRed)
+            }
         }
     }
 
