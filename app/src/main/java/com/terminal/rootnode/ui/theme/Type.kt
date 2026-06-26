@@ -2,39 +2,41 @@ package com.terminal.rootnode.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.googlefonts.Font
-import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.ui.unit.sp
 import com.terminal.rootnode.R
 
-private val provider = GoogleFont.Provider(
-    providerAuthority = "com.google.android.gms.fonts",
-    providerPackage = "com.google.android.gms",
-    certificates = R.array.com_google_android_gms_fonts_certs
-)
-
 val JetBrainsMono: FontFamily = FontFamily(
-    Font(
-        googleFont = GoogleFont("JetBrains Mono"),
-        fontProvider = provider,
-        weight = FontWeight.Normal
-    ),
-    Font(
-        googleFont = GoogleFont("JetBrains Mono"),
-        fontProvider = provider,
-        weight = FontWeight.Medium
-    ),
-    Font(
-        googleFont = GoogleFont("JetBrains Mono"),
-        fontProvider = provider,
-        weight = FontWeight.Bold
-    )
+    Font(resId = R.font.jetbrains_mono_regular, weight = FontWeight.Normal),
+    Font(resId = R.font.jetbrains_mono_medium, weight = FontWeight.Medium),
+    Font(resId = R.font.jetbrains_mono_bold, weight = FontWeight.Bold)
 )
 
-// Fallback for previews / offline: system monospace
 val TerminalFont: FontFamily = JetBrainsMono
+
+// Pre-defined static text styles to optimize recomposition performance
+val TerminalNormalTextStyle = TextStyle(
+    fontFamily = TerminalFont,
+    fontSize = 13.sp,
+    lineHeight = 19.sp,
+    letterSpacing = 0.2.sp
+)
+
+val TerminalBrailleTextStyle = TextStyle(
+    fontFamily = TerminalFont,
+    fontSize = 6.5.sp,
+    lineHeight = 7.sp,
+    letterSpacing = 0.sp
+)
+
+val TerminalInfoTextStyle = TextStyle(
+    fontFamily = TerminalFont,
+    fontSize = 11.sp,
+    lineHeight = 16.sp,
+    letterSpacing = 0.2.sp
+)
 
 val Typography = Typography(
     bodyLarge = TextStyle(

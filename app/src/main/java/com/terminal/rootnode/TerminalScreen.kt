@@ -50,6 +50,9 @@ import com.terminal.rootnode.ui.theme.NordSnow0
 import com.terminal.rootnode.ui.theme.NordYellow
 import com.terminal.rootnode.ui.theme.RootNodeTheme
 import com.terminal.rootnode.ui.theme.TerminalFont
+import com.terminal.rootnode.ui.theme.TerminalNormalTextStyle
+import com.terminal.rootnode.ui.theme.TerminalBrailleTextStyle
+import com.terminal.rootnode.ui.theme.TerminalInfoTextStyle
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -241,13 +244,11 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                     val isBraille = line.text.any { it.code in 0x2800..0x28FF }
                                     Text(
                                         text = line.text,
-                                        style = TextStyle(
-                                            fontFamily = TerminalFont,
-                                            fontSize = if (isBraille) 6.5.sp else 13.sp,
-                                            lineHeight = if (isBraille) 7.sp else 19.sp,
-                                            letterSpacing = if (isBraille) 0.sp else 0.2.sp,
-                                            color = line.color ?: NordGreen
-                                        ),
+                                        style = if (isBraille) {
+                                            TerminalBrailleTextStyle.copy(color = line.color ?: NordGreen)
+                                        } else {
+                                            TerminalNormalTextStyle.copy(color = line.color ?: NordGreen)
+                                        },
                                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                                         softWrap = false
                                     )
@@ -289,9 +290,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                     ) {
                                         Text(
                                             text = suggestion,
-                                            style = TextStyle(
-                                                fontFamily = TerminalFont,
-                                                fontSize = 11.sp,
+                                            style = TerminalInfoTextStyle.copy(
                                                 color = NordGreen
                                             )
                                         )
@@ -322,8 +321,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                 // Prompt prefix
                                 Text(
                                     text = "> root@fenrir:~$ ",
-                                    style = TextStyle(
-                                        fontFamily = TerminalFont,
+                                    style = TerminalNormalTextStyle.copy(
                                         fontSize = 12.sp,
                                         color = NordGreen.copy(alpha = 0.8f)
                                     )
@@ -338,9 +336,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .focusRequester(focusRequester),
-                                        textStyle = TextStyle(
-                                            fontFamily = TerminalFont,
-                                            fontSize = 13.sp,
+                                        textStyle = TerminalNormalTextStyle.copy(
                                             color = NordGreen
                                         ),
                                         cursorBrush = SolidColor(Color.Transparent),
@@ -364,9 +360,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                 if (inlineSuggestion.isNotEmpty() && input.text.isNotEmpty()) {
                                                     Text(
                                                         text = input.text + inlineSuggestion,
-                                                        style = TextStyle(
-                                                            fontFamily = TerminalFont,
-                                                            fontSize = 13.sp,
+                                                        style = TerminalNormalTextStyle.copy(
                                                             color = NordGreen.copy(alpha = 0.3f)
                                                         )
                                                     )
@@ -446,11 +440,7 @@ fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
             wolfLines.forEach { line ->
                 Text(
                     text = line,
-                    style = TextStyle(
-                        fontFamily = TerminalFont,
-                        fontSize = 6.5.sp,
-                        lineHeight = 7.sp,
-                        letterSpacing = 0.sp,
+                    style = TerminalBrailleTextStyle.copy(
                         color = NordFrost1
                     ),
                     softWrap = false
@@ -467,18 +457,14 @@ fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
         ) {
             Text(
                 text = "root@fenrir",
-                style = TextStyle(
-                    fontFamily = TerminalFont,
-                    fontSize = 13.sp,
+                style = TerminalNormalTextStyle.copy(
                     color = NordGreen,
                     letterSpacing = 0.5.sp
                 )
             )
             Text(
                 text = "─".repeat(14),
-                style = TextStyle(
-                    fontFamily = TerminalFont,
-                    fontSize = 11.sp,
+                style = TerminalInfoTextStyle.copy(
                     color = NordNight3
                 )
             )
@@ -486,17 +472,13 @@ fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
                 Row {
                     Text(
                         text = "$key: ",
-                        style = TextStyle(
-                            fontFamily = TerminalFont,
-                            fontSize = 11.sp,
+                        style = TerminalInfoTextStyle.copy(
                             color = NordFrost1
                         )
                     )
                     Text(
                         text = value,
-                        style = TextStyle(
-                            fontFamily = TerminalFont,
-                            fontSize = 11.sp,
+                        style = TerminalInfoTextStyle.copy(
                             color = color
                         ),
                         softWrap = true
