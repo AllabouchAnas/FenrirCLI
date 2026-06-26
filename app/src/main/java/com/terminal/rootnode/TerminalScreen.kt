@@ -42,6 +42,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,7 +65,19 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
     val history by viewModel.history.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
     val inlineSuggestion by viewModel.inlineSuggestion.collectAsState()
-    var input by remember { mutableStateOf("") }
+    var input by remember { mutableStateOf(TextFieldValue("")) }
+    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    val cursorRect = textLayoutResult?.let { layoutResult ->
+        val cursorIndex = input.selection.start
+        if (cursorIndex <= layoutResult.layoutInput.text.length) {
+            try {
+                layoutResult.getCursorRect(cursorIndex)
+            } catch (e: Exception) {
+                null
+            }
+        } else null
+    }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -218,7 +234,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "RootNode",
+                                text = "FenrirCLI",
                                 style = TextStyle(
                                     fontFamily = FontFamily.Monospace,
                                     fontSize = 12.sp,
@@ -305,13 +321,13 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                 shape = RoundedCornerShape(4.dp)
                                             )
                                             .clickable {
-                                                val parts = input.split(" ")
+                                                val parts = input.text.split(" ")
                                                 val newInput = if (parts.size > 1) {
                                                     parts.dropLast(1).joinToString(" ") + " " + suggestion
                                                 } else {
                                                     suggestion
                                                 }
-                                                input = newInput
+                                                input = TextFieldValue(newInput, selection = TextRange(newInput.length))
                                                 viewModel.onInputChange(newInput)
                                                 focusRequester.requestFocus()
                                             }
@@ -368,7 +384,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                         value = input,
                                         onValueChange = {
                                             input = it
-                                            viewModel.onInputChange(it)
+                                            viewModel.onInputChange(it.text)
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -382,9 +398,9 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                                         keyboardActions = KeyboardActions(
                                             onDone = {
-                                                if (input.isNotBlank()) {
-                                                    viewModel.processCommand(context, input)
-                                                    input = ""
+                                                if (input.text.isNotBlank()) {
+                                                    viewModel.processCommand(context, input.text)
+                                                    input = TextFieldValue("")
                                                     coroutineScope.launch {
                                                         if (history.isNotEmpty()) {
                                                             listState.animateScrollToItem(history.size - 1)
@@ -393,29 +409,37 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                 }
                                             }
                                         ),
+                                        onTextLayout = { textLayoutResult = it },
                                         decorationBox = { innerTextField ->
                                             Box(contentAlignment = Alignment.CenterStart) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Box {
-                                                        if (inlineSuggestion.isNotEmpty() && input.isNotEmpty()) {
-                                                            Text(
-                                                                text = input + inlineSuggestion,
-                                                                style = TextStyle(
-                                                                    fontFamily = FontFamily.Monospace,
-                                                                    fontSize = 13.sp,
-                                                                    color = MatrixGreen.copy(alpha = 0.3f)
-                                                                )
-                                                            )
-                                                        }
-                                                        innerTextField()
-                                                    }
-                                                    // Retro flashing block caret
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .padding(start = 1.dp)
-                                                            .size(width = 8.dp, height = 15.dp)
-                                                            .background(MatrixGreen.copy(alpha = caretAlpha))
+                                                if (inlineSuggestion.isNotEmpty() && input.text.isNotEmpty()) {
+                                                    Text(
+                                                        text = input.text + inlineSuggestion,
+                                                        style = TextStyle(
+                                                            fontFamily = FontFamily.Monospace,
+                                                            fontSize = 13.sp,
+                                                            color = MatrixGreen.copy(alpha = 0.3f)
+                                                        )
                                                     )
+                                                }
+                                                
+                                                Box(modifier = Modifier.fillMaxWidth()) {
+                                                    // Custom block caret drawn behind the text so characters remain readable
+                                                    val density = LocalDensity.current
+                                                    val caretModifier = cursorRect?.let { rect ->
+                                                        val leftDp = with(density) { rect.left.toDp() }
+                                                        val topDp = with(density) { rect.top.toDp() }
+                                                        val heightDp = with(density) { rect.height.toDp() }
+                                                        Modifier
+                                                            .offset(x = leftDp, y = topDp)
+                                                            .size(width = 8.dp, height = heightDp)
+                                                            .background(MatrixGreen.copy(alpha = caretAlpha))
+                                                    } ?: Modifier
+                                                        .size(width = 8.dp, height = 15.dp)
+                                                        .background(MatrixGreen.copy(alpha = caretAlpha))
+                                                    
+                                                    Box(modifier = caretModifier)
+                                                    innerTextField()
                                                 }
                                             }
                                         }

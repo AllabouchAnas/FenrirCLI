@@ -88,7 +88,7 @@ class TerminalViewModel : ViewModel() {
             "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈"
         )
         wolfLines.forEach { addToHistory(it, HackerBlue) }
-        addToHistory("RootNode Terminal v1.0.0", MatrixGreen)
+        addToHistory("FenrirCLI Terminal v1.0.0", MatrixGreen)
         addToHistory("OS    : Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})", HackerAmber)
         addToHistory("MODEL : ${android.os.Build.MODEL}", HackerAmber)
     }

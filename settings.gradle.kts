@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RootNode"
+rootProject.name = "FenrirCLI"
 include(":app")
  
