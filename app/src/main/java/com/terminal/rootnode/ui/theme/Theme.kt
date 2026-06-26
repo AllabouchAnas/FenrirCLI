@@ -9,43 +9,46 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 
+val LocalBlurEnabled = staticCompositionLocalOf { false }
+
 private val DarkColorScheme = darkColorScheme(
-    primary = MatrixGreen,
-    onPrimary = MatrixBlack,
-    secondary = HackerBlue,
-    onSecondary = MatrixBlack,
-    tertiary = HackerAmber,
-    onTertiary = MatrixBlack,
-    error = HackerRed,
-    onError = MatrixBlack,
-    background = MatrixBlack,
-    onBackground = MatrixGreen,
-    surface = MatrixBlack,
-    onSurface = MatrixGreen,
-    surfaceVariant = MatrixDarkGreen,
-    onSurfaceVariant = MatrixGreen,
-    outline = HackerPurple
+    primary         = NordGreen,
+    onPrimary       = NordNight0,
+    secondary       = NordFrost1,
+    onSecondary     = NordNight0,
+    tertiary        = NordYellow,
+    onTertiary      = NordNight0,
+    error           = NordRed,
+    onError         = NordNight0,
+    background      = NordNight0,
+    onBackground    = NordSnow0,
+    surface         = NordNight1,
+    onSurface       = NordSnow0,
+    surfaceVariant  = NordNight2,
+    onSurfaceVariant = NordSnow0,
+    outline         = NordNight3
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = MatrixDarkGreen,
-    onPrimary = MatrixGreen,
-    secondary = HackerBlue,
-    onSecondary = MatrixBlack,
-    tertiary = HackerAmber,
-    onTertiary = MatrixBlack,
-    background = MatrixGreen,
-    onBackground = MatrixBlack,
-    surface = MatrixGreen,
-    onSurface = MatrixBlack
+    primary         = NordGreen,
+    onPrimary       = NordNight0,
+    secondary       = NordFrost1,
+    onSecondary     = NordNight0,
+    tertiary        = NordYellow,
+    onTertiary      = NordNight0,
+    background      = NordNight1,
+    onBackground    = NordSnow0,
+    surface         = NordNight2,
+    onSurface       = NordSnow0
 )
 
 @Composable
 fun RootNodeTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color disabled to preserve the custom hacker/matrix theme
+    // Dynamic color disabled to preserve the Nord theme
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

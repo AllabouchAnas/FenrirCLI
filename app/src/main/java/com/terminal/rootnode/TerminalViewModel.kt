@@ -14,12 +14,16 @@ import androidx.room.Room
 import com.terminal.rootnode.data.Alias
 import com.terminal.rootnode.data.AliasDatabase
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.Color
-import com.terminal.rootnode.ui.theme.HackerAmber
-import com.terminal.rootnode.ui.theme.HackerBlue
-import com.terminal.rootnode.ui.theme.HackerPurple
-import com.terminal.rootnode.ui.theme.HackerRed
-import com.terminal.rootnode.ui.theme.MatrixGreen
+import com.terminal.rootnode.ui.theme.NordFrost1
+import com.terminal.rootnode.ui.theme.NordGreen
+import com.terminal.rootnode.ui.theme.NordNight3
+import com.terminal.rootnode.ui.theme.NordPurple
+import com.terminal.rootnode.ui.theme.NordRed
+import com.terminal.rootnode.ui.theme.NordSnow0
+import com.terminal.rootnode.ui.theme.NordYellow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +33,8 @@ import java.io.File
 
 data class TerminalLine(
     val text: String,
-    val color: Color? = null
+    val color: Color? = null,
+    val type: String = "text" // "text" | "neofetch"
 )
 
 data class AppInfo(
@@ -50,59 +55,30 @@ class TerminalViewModel : ViewModel() {
     private var installedApps = listOf<AppInfo>()
     private var db: AliasDatabase? = null
     private var aliases = mutableMapOf<String, String>()
+    private var suggestionJob: Job? = null
 
     init {
         // Startup sequence is now handled in initDatabase or a dedicated startup method
     }
 
-    private fun showBanner() {
-        // Read all 33 lines of the wolf from wolf.txt to show the complete art
-        val wolfLines = listOf(
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⡿⣇⣠⣶⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⣿⡿⠁⣿⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⣿⣿⠏⠃⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣴⣶⣶⣶⣤⣴⣿⣿⡏⢀⣀⣀⣿⣿⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠔⠛⠛⢛⣛⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⢿⣿⣿⣷⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣆⡈⠻⣿⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⡿⠛⢉⣾⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠯⠭⠉⠛⠻⠿⣿⣿⠿⣶⣿⣿⣷⣦⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠟⠀⠀⣼⣿⣿⣿⣿⣿⣿⣿⡿⢋⣠⣤⠀⠀⠀⠀⠀⠀⠀⠉⠑⠂⠉⠉⠛⠛⠛⠿⢶⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡿⣿⣿⣿⣿⣿⣇⣿⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⡿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⠁⢿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⡏⠀⠸⣿⣿⣿⣿⣿⣿⣿⣇⢠⠀⠀⠀⠀⠀⢿⡿⠿⠿⠟⠫⠿⠛⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⡇⠀⠀⢹⣿⣿⣿⣿⣿⣿⣿⣮⣧⠀⠀⠀⠀⠈⠳⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠀⠀⠀⢻⣿⣿⣿⣿⢿⣿⣿⣿⣷⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⣿⣿⣿⠸⣿⣿⣿⣿⣿⣿⣷⣦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠿⣿⠀⠙⣿⣿⣏⠙⠛⢿⣿⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠃⠀⠈⠻⣿⡄⠀⠀⠈⠻⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠄⠀⠀⠀⠹⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-            "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈"
-        )
-        wolfLines.forEach { addToHistory(it, HackerBlue) }
-        addToHistory("FenrirCLI Terminal v1.0.0", MatrixGreen)
-        addToHistory("OS    : Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})", HackerAmber)
-        addToHistory("MODEL : ${android.os.Build.MODEL}", HackerAmber)
+    private fun showBanner(osVersion: String, apiLevel: Int, model: String) {
+        // Encode OS info in the text so the UI can display it alongside the wolf art
+        addToHistory("NEOFETCH_BANNER|$osVersion|$apiLevel|$model", NordFrost1, type = "neofetch")
     }
 
     fun startup(context: Context) {
         if (_history.value.isEmpty()) {
-            showBanner()
+            val osVersion = android.os.Build.VERSION.RELEASE
+            val apiLevel = android.os.Build.VERSION.SDK_INT
+            val model = android.os.Build.MODEL
+            showBanner(osVersion, apiLevel, model)
             viewModelScope.launch {
                 val battery = getBatteryLevel(context)
                 val storage = getStorageInfo()
-                addToHistory("BATT  : $battery%", if (battery < 20) HackerRed else HackerAmber)
-                addToHistory("DISK  : $storage", HackerAmber)
-                addToHistory("------------------------------------------", MatrixGreen)
-                addToHistory("Type 'help' for available commands.", HackerPurple)
+                addToHistory("BATT  : $battery%", if (battery < 20) NordRed else NordYellow)
+                addToHistory("DISK  : $storage", NordYellow)
+                addToHistory("------------------------------------------", NordNight3)
+                addToHistory("Type 'help' for available commands.", NordPurple)
             }
         }
     }
@@ -162,6 +138,7 @@ class TerminalViewModel : ViewModel() {
     }
 
     fun onInputChange(input: String) {
+        suggestionJob?.cancel()
         if (input.isBlank()) {
             _suggestions.value = emptyList()
             _inlineSuggestion.value = ""
@@ -175,22 +152,23 @@ class TerminalViewModel : ViewModel() {
             return
         }
 
-        val appSuggestions = installedApps
-            .filter { it.label.lowercase().startsWith(lastWord.lowercase()) }
-            .map { it.label }
-        
-        val aliasSuggestions = aliases.keys
-            .filter { it.lowercase().startsWith(lastWord.lowercase()) }
+        suggestionJob = viewModelScope.launch(Dispatchers.Default) {
+            // Small debounce so rapid typing doesn't thrash
+            delay(80)
+            val appSuggestions = installedApps
+                .filter { it.label.lowercase().startsWith(lastWord.lowercase()) }
+                .map { it.label }
 
-        val allSuggestions = (aliasSuggestions + appSuggestions)
-        _suggestions.value = allSuggestions.take(10)
+            val aliasSuggestions = aliases.keys
+                .filter { it.lowercase().startsWith(lastWord.lowercase()) }
 
-        // Set inline suggestion if we have a match
-        val bestMatch = allSuggestions.firstOrNull { it.lowercase().startsWith(lastWord.lowercase()) }
-        if (bestMatch != null && bestMatch.length > lastWord.length) {
-            _inlineSuggestion.value = bestMatch.substring(lastWord.length)
-        } else {
-            _inlineSuggestion.value = ""
+            val allSuggestions = (aliasSuggestions + appSuggestions)
+            _suggestions.value = allSuggestions.take(10)
+
+            val bestMatch = allSuggestions.firstOrNull { it.lowercase().startsWith(lastWord.lowercase()) }
+            _inlineSuggestion.value = if (bestMatch != null && bestMatch.length > lastWord.length) {
+                bestMatch.substring(lastWord.length)
+            } else ""
         }
     }
 
@@ -198,7 +176,7 @@ class TerminalViewModel : ViewModel() {
         val trimmedCommand = command.trim()
         if (trimmedCommand.isEmpty()) return
 
-        addToHistory("root@node:~$ $trimmedCommand", MatrixGreen)
+        addToHistory("root@fenrir:~$ $trimmedCommand", NordGreen)
 
         val parts = trimmedCommand.split(" ")
         val mainCommandOrAlias = parts[0].lowercase()
@@ -219,17 +197,17 @@ class TerminalViewModel : ViewModel() {
                     val appName = finalParts.drop(1).joinToString(" ")
                     launchApp(context, appName)
                 } else {
-                    addToHistory("Usage: open <appname>", HackerRed)
+                    addToHistory("Usage: open <appname>", NordRed)
                 }
             }
             else -> {
                 // Try to launch directly by name if it's not a multi-word command we don't know
                 if (finalParts.size == 1) {
                     if (!launchApp(context, actualCommand)) {
-                        addToHistory("Command not found: $mainCommand", HackerRed)
+                        addToHistory("Command not found: $mainCommand", NordRed)
                     }
                 } else {
-                    addToHistory("Command not found: $mainCommand", HackerRed)
+                    addToHistory("Command not found: $mainCommand", NordRed)
                 }
             }
         }
@@ -238,20 +216,20 @@ class TerminalViewModel : ViewModel() {
     }
 
     private fun showHelp() {
-        addToHistory("Available commands:", HackerBlue)
-        addToHistory("  open <appname>  - Launch an application", HackerAmber)
-        addToHistory("  help            - Show this help message", HackerAmber)
-        addToHistory("  ls              - List all installed apps", HackerAmber)
-        addToHistory("  sysinfo         - Show system information", HackerAmber)
-        addToHistory("  alias <n>=<c>   - Create an alias (e.g. alias g=Gmail)", HackerAmber)
-        addToHistory("  unalias <name>  - Remove an alias", HackerAmber)
-        addToHistory("  clear           - Clear terminal history", HackerAmber)
-        addToHistory("  <appname>       - Launch an application directly", HackerAmber)
+        addToHistory("Available commands:", NordFrost1)
+        addToHistory("  open <appname>  - Launch an application", NordYellow)
+        addToHistory("  help            - Show this help message", NordYellow)
+        addToHistory("  ls              - List all installed apps", NordYellow)
+        addToHistory("  sysinfo         - Show system information", NordYellow)
+        addToHistory("  alias <n>=<c>   - Create an alias (e.g. alias g=Gmail)", NordYellow)
+        addToHistory("  unalias <name>  - Remove an alias", NordYellow)
+        addToHistory("  clear           - Clear terminal history", NordYellow)
+        addToHistory("  <appname>       - Launch an application directly", NordYellow)
     }
 
     private fun listApps() {
-        addToHistory("Installed Applications:", HackerBlue)
-        installedApps.forEach { addToHistory("  ${it.label}", HackerAmber) }
+        addToHistory("Installed Applications:", NordFrost1)
+        installedApps.forEach { addToHistory("  ${it.label}", NordSnow0) }
     }
 
     private fun clearHistory(context: Context) {
@@ -270,17 +248,17 @@ class TerminalViewModel : ViewModel() {
                 viewModelScope.launch {
                     db?.aliasDao()?.insert(Alias(name, command))
                     aliases[name] = command
-                    addToHistory("Alias created: $name -> $command", HackerPurple)
+                    addToHistory("Alias created: $name -> $command", NordPurple)
                 }
             } else {
-                addToHistory("Invalid alias format. Usage: alias <name>=<command>", HackerRed)
+                addToHistory("Invalid alias format. Usage: alias <name>=<command>", NordRed)
             }
         } else if (content.isEmpty()) {
-            addToHistory("Current Aliases:", HackerBlue)
-            if (aliases.isEmpty()) addToHistory("  None", HackerRed)
-            aliases.forEach { (name, cmd) -> addToHistory("  $name -> $cmd", HackerAmber) }
+            addToHistory("Current Aliases:", NordFrost1)
+            if (aliases.isEmpty()) addToHistory("  None", NordRed)
+            aliases.forEach { (name, cmd) -> addToHistory("  $name -> $cmd", NordYellow) }
         } else {
-            addToHistory("Invalid alias format. Usage: alias <name>=<command>", HackerRed)
+            addToHistory("Invalid alias format. Usage: alias <name>=<command>", NordRed)
         }
     }
 
@@ -317,15 +295,15 @@ class TerminalViewModel : ViewModel() {
                 }
             }
 
-            addToHistory("┌──────────────────────────────────────────┐", HackerBlue)
-            addToHistory("│             SYSTEM STATUS                │", HackerBlue)
-            addToHistory("├──────────────────────────────────────────┤", HackerBlue)
-            addToHistory("│ BATTERY: $batteryStatus% " + getProgressBar(batteryStatus), if (batteryStatus < 20) HackerRed else HackerAmber)
-            addToHistory("│ STORAGE: $storageInfo", HackerAmber)
-            addToHistory("│ NETWORK: $networkInfo", HackerPurple)
-            addToHistory("│ KERNEL : Android ${android.os.Build.VERSION.RELEASE}", HackerPurple)
-            addToHistory("│ DEVICE : ${android.os.Build.MODEL}", HackerPurple)
-            addToHistory("└──────────────────────────────────────────┘", HackerBlue)
+            addToHistory("┌──────────────────────────────────────────┐", NordFrost1)
+            addToHistory("│             SYSTEM STATUS                │", NordFrost1)
+            addToHistory("├──────────────────────────────────────────┤", NordFrost1)
+            addToHistory("│ BATTERY: $batteryStatus% " + getProgressBar(batteryStatus), if (batteryStatus < 20) NordRed else NordYellow)
+            addToHistory("│ STORAGE: $storageInfo", NordYellow)
+            addToHistory("│ NETWORK: $networkInfo", NordPurple)
+            addToHistory("│ KERNEL : Android ${android.os.Build.VERSION.RELEASE}", NordPurple)
+            addToHistory("│ DEVICE : ${android.os.Build.MODEL}", NordPurple)
+            addToHistory("└──────────────────────────────────────────┘", NordFrost1)
         }
     }
 
@@ -343,10 +321,10 @@ class TerminalViewModel : ViewModel() {
             val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
             if (launchIntent != null) {
                 context.startActivity(launchIntent)
-                addToHistory("Launching ${app.label}...", HackerPurple)
+                addToHistory("Launching ${app.label}...", NordPurple)
                 true
             } else {
-                addToHistory("Error: Could not find launch intent for ${app.label}", HackerRed)
+                addToHistory("Error: Could not find launch intent for ${app.label}", NordRed)
                 false
             }
         } else {
@@ -354,7 +332,39 @@ class TerminalViewModel : ViewModel() {
         }
     }
 
-    private fun addToHistory(line: String, color: Color? = null) {
-        _history.value = _history.value + TerminalLine(line, color)
+    private fun addToHistory(line: String, color: Color? = null, type: String = "text") {
+        _history.value = _history.value + TerminalLine(line, color, type)
     }
+
+    // Expose wolf lines for UI rendering
+    val wolfLines: List<String> = listOf(
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⡿⣇⣠⣶⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⣿⡿⠁⣿⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⣿⣿⠏⠃⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣴⣶⣶⣶⣤⣴⣿⣿⡏⢀⣀⣀⣿⣿⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠔⠛⠛⢛⣛⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⢿⣿⣿⣷⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣆⡈⠻⣿⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⡿⠛⢉⣾⣿⣿⣿⣿⣿⣿⣿⣿⡿⠿⠯⠭⠉⠛⠻⠿⣿⣿⠿⣶⣿⣿⣷⣦⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠟⠀⠀⣼⣿⣿⣿⣿⣿⣿⣿⡿⢋⣠⣤⠀⠀⠀⠀⠀⠀⠀⠉⠑⠂⠉⠉⠛⠛⠛⠿⢶⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡿⣿⣿⣿⣿⣿⣇⣿⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⡿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⠁⢿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⡏⠀⠸⣿⣿⣿⣿⣿⣿⣿⣇⢠⠀⠀⠀⠀⠀⢿⡿⠿⠿⠟⠫⠿⠛⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⡇⠀⠀⢹⣿⣿⣿⣿⣿⣿⣿⣮⣧⠀⠀⠀⠀⠈⠳⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠀⠀⠀⢻⣿⣿⣿⣿⢿⣿⣿⣿⣷⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⣿⣿⣿⠸⣿⣿⣿⣿⣿⣿⣷⣦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠿⣿⠀⠙⣿⣿⣏⠙⠛⢿⣿⣿⣧⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠃⠀⠈⠻⣿⡄⠀⠀⠈⠻⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠄⠀⠀⠀⠹⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+        "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈"
+    )
 }

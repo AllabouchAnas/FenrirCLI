@@ -1,10 +1,7 @@
 package com.terminal.rootnode
 
 import android.annotation.SuppressLint
-import android.app.WallpaperManager
-import android.graphics.drawable.BitmapDrawable
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,35 +22,34 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.window.core.layout.WindowWidthSizeClass
-import com.terminal.rootnode.ui.theme.HackerBlue
-import com.terminal.rootnode.ui.theme.MatrixGreen
+import com.terminal.rootnode.ui.theme.InputBarDark
+import com.terminal.rootnode.ui.theme.LocalBlurEnabled
+import com.terminal.rootnode.ui.theme.NordFrost1
+import com.terminal.rootnode.ui.theme.NordGreen
+import com.terminal.rootnode.ui.theme.NordNight0
+import com.terminal.rootnode.ui.theme.NordNight3
+import com.terminal.rootnode.ui.theme.NordSnow0
+import com.terminal.rootnode.ui.theme.NordYellow
 import com.terminal.rootnode.ui.theme.RootNodeTheme
+import com.terminal.rootnode.ui.theme.TerminalFont
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -86,8 +82,6 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
     val adaptiveInfo = currentWindowAdaptiveInfo()
     val isExpanded = adaptiveInfo.windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.EXPANDED
 
-    val wallpaperBitmap = remember { mutableStateOf<ImageBitmap?>(null) }
-
     // Live clock
     var currentTime by remember { mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())) }
     LaunchedEffect(Unit) {
@@ -101,22 +95,12 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
         viewModel.loadApps(context)
         viewModel.initDatabase(context)
         focusRequester.requestFocus()
-
-        try {
-            val wallpaperManager = WallpaperManager.getInstance(context)
-            val drawable = wallpaperManager.peekDrawable() ?: wallpaperManager.drawable
-            if (drawable is BitmapDrawable) {
-                wallpaperBitmap.value = drawable.bitmap.asImageBitmap()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
-    // Auto-scroll to bottom whenever history changes
+    // Auto-scroll to bottom whenever history changes — instant to avoid jank during typing
     LaunchedEffect(history.size) {
         if (history.isNotEmpty()) {
-            listState.animateScrollToItem(history.size - 1)
+            listState.scrollToItem(history.size - 1)
         }
     }
 
@@ -143,51 +127,25 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
         label = "glowAlpha"
     )
 
+    val isBlurEnabled = LocalBlurEnabled.current
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { focusRequester.requestFocus() })
             }
-            .background(Color(0xFF080C08))
+            .background(if (isBlurEnabled) Color.Transparent else NordNight0)
     ) {
-        // Background Wallpaper
-        wallpaperBitmap.value?.let { bitmap ->
-            Image(
-                bitmap = bitmap,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .blur(24.dp),
-                contentScale = ContentScale.Crop
-            )
-        }
 
         // Dark overlay
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF080C08).copy(alpha = 0.82f))
+                .background(NordNight0.copy(alpha = 0.5f))
         )
 
-        // Scanline overlay (subtle CRT effect)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .drawBehind {
-                    val lineHeight = 4f
-                    var y = 0f
-                    while (y < size.height) {
-                        drawLine(
-                            color = Color.Black.copy(alpha = 0.08f),
-                            start = Offset(0f, y),
-                            end = Offset(size.width, y),
-                            strokeWidth = lineHeight / 2
-                        )
-                        y += lineHeight
-                    }
-                }
-        )
+        // Scanline overlay removed — was causing per-frame redraws on top of blurred wallpaper
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -203,21 +161,8 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFF001A00),
-                                    Color(0xFF001A00).copy(alpha = 0.7f),
-                                    Color(0xFF001A00)
-                                )
-                            )
-                        )
-                        .border(
-                            width = 0.5.dp,
-                            color = MatrixGreen.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(0.dp)
-                        )
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                        .background(Color(0xFF000000).copy(alpha = 0.45f))
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Row(
@@ -225,20 +170,23 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Left: App name with colored dot
+                        // Left: >_ FenrirCLI
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .background(MatrixGreen, RoundedCornerShape(50))
+                            Text(
+                                text = ">_ ",
+                                style = TextStyle(
+                                    fontFamily = TerminalFont,
+                                    fontSize = 13.sp,
+                                    color = NordGreen.copy(alpha = 0.6f),
+                                    letterSpacing = 1.sp
+                                )
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "FenrirCLI",
                                 style = TextStyle(
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 12.sp,
-                                    color = MatrixGreen,
+                                    fontFamily = TerminalFont,
+                                    fontSize = 13.sp,
+                                    color = NordGreen,
                                     letterSpacing = 2.sp
                                 )
                             )
@@ -247,9 +195,9 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                         Text(
                             text = currentTime,
                             style = TextStyle(
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = TerminalFont,
                                 fontSize = 12.sp,
-                                color = HackerBlue.copy(alpha = 0.8f),
+                                color = NordFrost1.copy(alpha = 0.85f),
                                 letterSpacing = 1.sp
                             )
                         )
@@ -275,7 +223,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                             )
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        // Output history - scrolls from top, auto-scrolls to bottom on new output
+                        // Output history
                         LazyColumn(
                             modifier = Modifier
                                 .weight(1f)
@@ -284,20 +232,26 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                             verticalArrangement = Arrangement.Top
                         ) {
                             items(history) { line ->
-                                // Wolf art uses smaller font; normal lines use regular size
-                                val isBraille = line.text.any { it.code in 0x2800..0x28FF }
-                                Text(
-                                    text = line.text,
-                                    style = TextStyle(
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = if (isBraille) 6.5.sp else 13.sp,
-                                        lineHeight = if (isBraille) 7.sp else 18.sp,
-                                        letterSpacing = if (isBraille) 0.sp else 0.3.sp,
-                                        color = line.color ?: MatrixGreen
-                                    ),
-                                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                                    softWrap = false
-                                )
+                                if (line.type == "neofetch") {
+                                    NeofetchBanner(
+                                        bannerText = line.text,
+                                        wolfLines = viewModel.wolfLines
+                                    )
+                                } else {
+                                    val isBraille = line.text.any { it.code in 0x2800..0x28FF }
+                                    Text(
+                                        text = line.text,
+                                        style = TextStyle(
+                                            fontFamily = TerminalFont,
+                                            fontSize = if (isBraille) 6.5.sp else 13.sp,
+                                            lineHeight = if (isBraille) 7.sp else 19.sp,
+                                            letterSpacing = if (isBraille) 0.sp else 0.2.sp,
+                                            color = line.color ?: NordGreen
+                                        ),
+                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                        softWrap = false
+                                    )
+                                }
                             }
                         }
 
@@ -313,12 +267,12 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                 items(suggestions) { suggestion ->
                                     Box(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(Color(0xFF001A00))
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(NordNight3.copy(alpha = 0.7f))
                                             .border(
                                                 width = 0.5.dp,
-                                                color = MatrixGreen.copy(alpha = 0.5f),
-                                                shape = RoundedCornerShape(4.dp)
+                                                color = NordGreen.copy(alpha = 0.4f),
+                                                shape = RoundedCornerShape(6.dp)
                                             )
                                             .clickable {
                                                 val parts = input.text.split(" ")
@@ -336,9 +290,9 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                         Text(
                                             text = suggestion,
                                             style = TextStyle(
-                                                fontFamily = FontFamily.Monospace,
+                                                fontFamily = TerminalFont,
                                                 fontSize = 11.sp,
-                                                color = MatrixGreen
+                                                color = NordGreen
                                             )
                                         )
                                     }
@@ -348,35 +302,30 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // ── Input Row ──────────────────────────
+                        // ── Input Row (Pill) ───────────────────
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF001200))
+                                .clip(RoundedCornerShape(28.dp))
+                                .background(InputBarDark.copy(alpha = 0.88f))
                                 .border(
-                                    width = 1.dp,
-                                    brush = Brush.horizontalGradient(
-                                        colors = listOf(
-                                            MatrixGreen.copy(alpha = glowAlpha * 0.6f),
-                                            MatrixGreen.copy(alpha = glowAlpha),
-                                            MatrixGreen.copy(alpha = glowAlpha * 0.6f)
-                                        )
-                                    ),
-                                    shape = RoundedCornerShape(6.dp)
+                                    width = 0.5.dp,
+                                    color = NordNight3.copy(alpha = 0.8f),
+                                    shape = RoundedCornerShape(28.dp)
                                 )
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
+                                // Prompt prefix
                                 Text(
-                                    text = "❯ ",
+                                    text = "> root@fenrir:~$ ",
                                     style = TextStyle(
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 13.sp,
-                                        color = MatrixGreen
+                                        fontFamily = TerminalFont,
+                                        fontSize = 12.sp,
+                                        color = NordGreen.copy(alpha = 0.8f)
                                     )
                                 )
                                 Box(modifier = Modifier.weight(1f)) {
@@ -390,9 +339,9 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                             .fillMaxWidth()
                                             .focusRequester(focusRequester),
                                         textStyle = TextStyle(
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = TerminalFont,
                                             fontSize = 13.sp,
-                                            color = MatrixGreen
+                                            color = NordGreen
                                         ),
                                         cursorBrush = SolidColor(Color.Transparent),
                                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -416,13 +365,13 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                     Text(
                                                         text = input.text + inlineSuggestion,
                                                         style = TextStyle(
-                                                            fontFamily = FontFamily.Monospace,
+                                                            fontFamily = TerminalFont,
                                                             fontSize = 13.sp,
-                                                            color = MatrixGreen.copy(alpha = 0.3f)
+                                                            color = NordGreen.copy(alpha = 0.3f)
                                                         )
                                                     )
                                                 }
-                                                
+
                                                 Box(modifier = Modifier.fillMaxWidth()) {
                                                     // Custom block caret drawn behind the text so characters remain readable
                                                     val density = LocalDensity.current
@@ -433,11 +382,11 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                         Modifier
                                                             .offset(x = leftDp, y = topDp)
                                                             .size(width = 8.dp, height = heightDp)
-                                                            .background(MatrixGreen.copy(alpha = caretAlpha))
+                                                            .background(NordGreen.copy(alpha = caretAlpha))
                                                     } ?: Modifier
                                                         .size(width = 8.dp, height = 15.dp)
-                                                        .background(MatrixGreen.copy(alpha = caretAlpha))
-                                                    
+                                                        .background(NordGreen.copy(alpha = caretAlpha))
+
                                                     Box(modifier = caretModifier)
                                                     innerTextField()
                                                 }
@@ -445,6 +394,21 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                         }
                                     )
                                 }
+                                // ✦ Sparkle button
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "✦",
+                                    style = TextStyle(
+                                        fontFamily = TerminalFont,
+                                        fontSize = 18.sp,
+                                        color = NordFrost1.copy(alpha = glowAlpha)
+                                    ),
+                                    modifier = Modifier.clickable {
+                                        input = TextFieldValue("")
+                                        viewModel.onInputChange("")
+                                        focusRequester.requestFocus()
+                                    }
+                                )
                             }
                         }
 
@@ -456,7 +420,95 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
     }
 }
 
+@Composable
+fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
+    // Parse the encoded info: "NEOFETCH_BANNER|osVersion|apiLevel|model"
+    val parts = bannerText.split("|")
+    val osVersion = parts.getOrNull(1) ?: "?"
+    val apiLevel = parts.getOrNull(2) ?: "?"
+    val model = parts.getOrNull(3) ?: "?"
+
+    val infoLines = listOf(
+        Triple("OS", "Android $osVersion (API $apiLevel)", NordYellow),
+        Triple("DEVICE", model, NordYellow),
+        Triple("SHELL", "FenrirCLI v1.0", NordFrost1),
+        Triple("KERNEL", "Linux (Android)", NordFrost1),
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        // Wolf art on the left
+        Column(modifier = Modifier.weight(0.55f)) {
+            wolfLines.forEach { line ->
+                Text(
+                    text = line,
+                    style = TextStyle(
+                        fontFamily = TerminalFont,
+                        fontSize = 6.5.sp,
+                        lineHeight = 7.sp,
+                        letterSpacing = 0.sp,
+                        color = NordFrost1
+                    ),
+                    softWrap = false
+                )
+            }
+        }
+
+        // Info panel on the right
+        Column(
+            modifier = Modifier
+                .weight(0.45f)
+                .padding(top = 24.dp, start = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "root@fenrir",
+                style = TextStyle(
+                    fontFamily = TerminalFont,
+                    fontSize = 13.sp,
+                    color = NordGreen,
+                    letterSpacing = 0.5.sp
+                )
+            )
+            Text(
+                text = "─".repeat(14),
+                style = TextStyle(
+                    fontFamily = TerminalFont,
+                    fontSize = 11.sp,
+                    color = NordNight3
+                )
+            )
+            infoLines.forEach { (key, value, color) ->
+                Row {
+                    Text(
+                        text = "$key: ",
+                        style = TextStyle(
+                            fontFamily = TerminalFont,
+                            fontSize = 11.sp,
+                            color = NordFrost1
+                        )
+                    )
+                    Text(
+                        text = value,
+                        style = TextStyle(
+                            fontFamily = TerminalFont,
+                            fontSize = 11.sp,
+                            color = color
+                        ),
+                        softWrap = true
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp,navigation=buttons")
+
 @Composable
 fun TerminalScreenPreview() {
     RootNodeTheme(darkTheme = true) {
