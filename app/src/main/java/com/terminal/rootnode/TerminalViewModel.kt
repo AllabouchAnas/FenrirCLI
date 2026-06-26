@@ -84,7 +84,7 @@ class TerminalViewModel : ViewModel() {
             val availRam = memoryInfo.availMem / (1024 * 1024 * 1024.0)
             val usedRam = totalRam - availRam
             val percent = (usedRam / totalRam * 100).toInt()
-            "%.1fG / %.1fG ($percent%)".format(usedRam, totalRam)
+            "%.1fG / %.1fG ($percent%%)".format(usedRam, totalRam)
         } else {
             "Unknown"
         }
@@ -99,7 +99,7 @@ class TerminalViewModel : ViewModel() {
         val availStorage = (availableBlocks * blockSize) / (1024 * 1024 * 1024.0)
         val usedStorage = totalStorage - availStorage
         val storagePercent = (usedStorage / totalStorage * 100).toInt()
-        val storageStr = "%.1fG / %.1fG ($storagePercent%)".format(usedStorage, totalStorage)
+        val storageStr = "%.1fG / %.1fG ($storagePercent%%)".format(usedStorage, totalStorage)
 
         // Real Battery Info
         val batteryLevel = getBatteryLevel(context)
