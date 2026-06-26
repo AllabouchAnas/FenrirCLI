@@ -367,4 +367,33 @@ class TerminalViewModel : ViewModel() {
         "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀",
         "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈"
     )
+
+    val trimmedWolfLines: List<String> by lazy {
+        val lines = wolfLines
+        fun isBlankChar(c: Char) = c.isWhitespace() || c == '\u2800'
+        
+        // Find the minimum number of leading blanks in non-empty lines
+        val minBlanks = lines
+            .filter { line -> line.any { !isBlankChar(it) } }
+            .map { line -> line.takeWhile { isBlankChar(it) }.length }
+            .minOrNull() ?: 0
+
+        val trimmedLines = lines.map { line ->
+            if (line.length >= minBlanks) {
+                line.substring(minBlanks).trimEnd { isBlankChar(it) }
+            } else {
+                ""
+            }
+        }
+
+        // Trim empty lines from top and bottom
+        val firstContentIndex = trimmedLines.indexOfFirst { line -> line.any { !isBlankChar(it) } }
+        val lastContentIndex = trimmedLines.indexOfLast { line -> line.any { !isBlankChar(it) } }
+
+        if (firstContentIndex in 0..lastContentIndex) {
+            trimmedLines.subList(firstContentIndex, lastContentIndex + 1)
+        } else {
+            emptyList()
+        }
+    }
 }

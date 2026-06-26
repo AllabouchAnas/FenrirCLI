@@ -238,7 +238,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                 if (line.type == "neofetch") {
                                     NeofetchBanner(
                                         bannerText = line.text,
-                                        wolfLines = viewModel.wolfLines
+                                        wolfLines = viewModel.trimmedWolfLines
                                     )
                                 } else {
                                     val isBraille = line.text.any { it.code in 0x2800..0x28FF }
@@ -436,7 +436,7 @@ fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
         verticalAlignment = Alignment.Top
     ) {
         // Wolf art on the left
-        Column(modifier = Modifier.weight(0.55f)) {
+        Column(modifier = Modifier.weight(0.5f)) {
             wolfLines.forEach { line ->
                 Text(
                     text = line,
@@ -451,8 +451,8 @@ fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
         // Info panel on the right
         Column(
             modifier = Modifier
-                .weight(0.45f)
-                .padding(top = 24.dp, start = 8.dp),
+                .weight(0.5f)
+                .padding(top = 8.dp, start = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
