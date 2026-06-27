@@ -22,3 +22,15 @@ Thumbs.db
 
 # Agent files / Workspace files
 .agent/
+
+# Keystores & Signing
+*.keystore
+*.jks
+*.pepk
+
+# Built outputs
+*.apk
+*.aar
+*.ap_
+*.aab
+
