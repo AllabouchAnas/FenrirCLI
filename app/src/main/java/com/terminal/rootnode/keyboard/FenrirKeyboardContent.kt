@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -83,8 +84,22 @@ internal fun FenrirKeyboardContent(
             KeyboardLayer.ALPHA -> {
                 // Row 1: QWERTY top
                 KeyRow(ALPHA_ROW1, dispatch, alphaLabel)
-                // Row 2: ASDFGHJKL
-                KeyRow(ALPHA_ROW2, dispatch, alphaLabel)
+                // Row 2: ASDFGHJKL (centered with 0.5 weight spacers)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Spacer(modifier = Modifier.weight(0.5f))
+                    ALPHA_ROW2.forEach { key ->
+                        FenrirKey(
+                            label     = if (shift.isActive) key.label.uppercase() else key.label,
+                            modifier  = Modifier.weight(1f),
+                            a11yLabel = key.a11yLabel,
+                            onTap     = { dispatch(key.action) },
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(0.5f))
+                }
                 // Row 3: Shift + ZXCVBNM + Backspace
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -116,13 +131,28 @@ internal fun FenrirKeyboardContent(
             KeyboardLayer.NUMERIC -> {
                 // Row 1: 1234567890
                 KeyRow(NUM_ROW1, dispatch)
-                // Row 2: - _ = + ( ) [ ] ;
-                KeyRow(NUM_ROW2, dispatch)
-                // Row 3: { } ' " , ? ! + Backspace
+                // Row 2: - _ = + ( ) [ ] ; (centered with 0.5 weight spacers)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    Spacer(modifier = Modifier.weight(0.5f))
+                    NUM_ROW2.forEach { key ->
+                        FenrirKey(
+                            label     = key.label,
+                            modifier  = Modifier.weight(1f),
+                            a11yLabel = key.a11yLabel,
+                            onTap     = { dispatch(key.action) },
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(0.5f))
+                }
+                // Row 3: { } ' " , ? ! + Backspace (aligned with spacer to match Row 3 QWERTY layout)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Spacer(modifier = Modifier.weight(1.5f))
                     NUM_ROW3_INNER.forEach { key ->
                         FenrirKey(
                             label    = key.label,

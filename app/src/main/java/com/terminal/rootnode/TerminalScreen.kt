@@ -247,20 +247,17 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
         }
     }
 
-    // Blinking Caret State
-    var cursorVisible by remember { mutableStateOf(true) }
-    LaunchedEffect(input.text, input.selection) {
-        // Reset blinking phase on typing/selection change for optimal UX
-        cursorVisible = true
-    }
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(500)
-            cursorVisible = !cursorVisible
-        }
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "glow")
+    // Caret Animation
+    val infiniteTransition = rememberInfiniteTransition(label = "caret")
+    val caretAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "caretAlpha"
+    )
 
     // Glow pulse for input border
     val glowAlpha by infiniteTransition.animateFloat(
@@ -546,9 +543,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                     }
 
                                                     Box(modifier = Modifier.fillMaxWidth()) {
-                                                        innerTextField()
-
-                                                        // Custom blinking vertical bar caret (|) drawn on top of text
+                                                        // Custom block caret drawn behind the text so characters remain readable
                                                         val density = LocalDensity.current
                                                         val caretModifier = cursorRect?.let { rect ->
                                                             val leftDp = with(density) { rect.left.toDp() }
@@ -556,13 +551,14 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                             val heightDp = with(density) { rect.height.toDp() }
                                                             Modifier
                                                                 .offset(x = leftDp, y = topDp)
-                                                                .size(width = 2.dp, height = heightDp)
-                                                                .background(if (cursorVisible) NordGreen else Color.Transparent)
+                                                                .size(width = 8.dp, height = heightDp)
+                                                                .background(NordGreen.copy(alpha = caretAlpha))
                                                         } ?: Modifier
-                                                            .size(width = 2.dp, height = 15.dp)
-                                                            .background(if (cursorVisible) NordGreen else Color.Transparent)
+                                                            .size(width = 8.dp, height = 15.dp)
+                                                            .background(NordGreen.copy(alpha = caretAlpha))
 
                                                         Box(modifier = caretModifier)
+                                                        innerTextField()
                                                     }
                                                 }
                                             }
@@ -602,35 +598,35 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                         }
 
                         Spacer(modifier = Modifier.height(4.dp))
-
-                        // ── FenrirKeyboard (in-app custom keyboard) ────────
-                        AnimatedVisibility(
-                            visible = showCustomKeyboard,
-                            enter = slideInVertically(initialOffsetY = { it }),
-                            exit = slideOutVertically(targetOffsetY = { it })
-                        ) {
-                            FenrirKeyboard(
-                                value = input,
-                                onValueChange = { newValue ->
-                                    input = newValue
-                                    viewModel.onInputChange(newValue.text)
-                                },
-                                onEnter = {
-                                    if (input.text.isNotBlank()) {
-                                        viewModel.processCommand(context, input.text)
-                                        input = TextFieldValue("")
-                                        coroutineScope.launch {
-                                            if (history.isNotEmpty()) {
-                                                listState.animateScrollToItem(history.size - 1)
-                                            }
-                                        }
-                                    }
-                                },
-                                onHistoryUp   = { viewModel.historyUp() },
-                                onHistoryDown = { viewModel.historyDown() }
-                            )
-                        }
                     }
+                }
+
+                // ── FenrirKeyboard (in-app custom keyboard) ────────
+                AnimatedVisibility(
+                    visible = showCustomKeyboard,
+                    enter = slideInVertically(initialOffsetY = { it }),
+                    exit = slideOutVertically(targetOffsetY = { it })
+                ) {
+                    FenrirKeyboard(
+                        value = input,
+                        onValueChange = { newValue ->
+                            input = newValue
+                            viewModel.onInputChange(newValue.text)
+                        },
+                        onEnter = {
+                            if (input.text.isNotBlank()) {
+                                viewModel.processCommand(context, input.text)
+                                input = TextFieldValue("")
+                                coroutineScope.launch {
+                                    if (history.isNotEmpty()) {
+                                        listState.animateScrollToItem(history.size - 1)
+                                    }
+                                }
+                            }
+                        },
+                        onHistoryUp   = { viewModel.historyUp() },
+                        onHistoryDown = { viewModel.historyDown() }
+                    )
                 }
             }
         }

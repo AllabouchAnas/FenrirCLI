@@ -58,14 +58,12 @@ fun TextFieldValue.deleteBeforeCursor(): TextFieldValue {
     // Walk back one grapheme cluster using BreakIterator
     val iterator = BreakIterator.getCharacterInstance()
     iterator.setText(text)
-    iterator.following(start)
-    val clusterStart = iterator.previous() // position of current cluster
-    val deleteFrom   = iterator.previous() // start of cluster before cursor
+    val deleteFrom = iterator.preceding(start)
 
     // Clamp to 0 in case iterator returns DONE
     val safeDeleteFrom = if (deleteFrom == BreakIterator.DONE) 0 else deleteFrom
 
-    val newText = text.substring(0, safeDeleteFrom) + text.substring(clusterStart)
+    val newText = text.substring(0, safeDeleteFrom) + text.substring(start)
     return TextFieldValue(newText, selection = TextRange(safeDeleteFrom))
 }
 
@@ -79,9 +77,7 @@ fun TextFieldValue.moveCursorLeft(): TextFieldValue {
 
     val iterator = BreakIterator.getCharacterInstance()
     iterator.setText(text)
-    iterator.following(pos)
-    iterator.previous()
-    val prev = iterator.previous()
+    val prev = iterator.preceding(pos)
     val newPos = if (prev == BreakIterator.DONE) 0 else prev
 
     return TextFieldValue(text, selection = TextRange(newPos))
