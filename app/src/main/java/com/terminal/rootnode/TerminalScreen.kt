@@ -247,17 +247,20 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
         }
     }
 
-    // Caret Animation
-    val infiniteTransition = rememberInfiniteTransition(label = "caret")
-    val caretAlpha by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "caretAlpha"
-    )
+    // Blinking Caret State
+    var cursorVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(input.text, input.selection) {
+        // Reset blinking phase on typing/selection change for optimal UX
+        cursorVisible = true
+    }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(500)
+            cursorVisible = !cursorVisible
+        }
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "glow")
 
     // Glow pulse for input border
     val glowAlpha by infiniteTransition.animateFloat(
@@ -543,7 +546,9 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                     }
 
                                                     Box(modifier = Modifier.fillMaxWidth()) {
-                                                        // Custom block caret drawn behind the text so characters remain readable
+                                                        innerTextField()
+
+                                                        // Custom blinking vertical bar caret (|) drawn on top of text
                                                         val density = LocalDensity.current
                                                         val caretModifier = cursorRect?.let { rect ->
                                                             val leftDp = with(density) { rect.left.toDp() }
@@ -551,14 +556,13 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                             val heightDp = with(density) { rect.height.toDp() }
                                                             Modifier
                                                                 .offset(x = leftDp, y = topDp)
-                                                                .size(width = 8.dp, height = heightDp)
-                                                                .background(NordGreen.copy(alpha = caretAlpha))
+                                                                .size(width = 2.dp, height = heightDp)
+                                                                .background(if (cursorVisible) NordGreen else Color.Transparent)
                                                         } ?: Modifier
-                                                            .size(width = 8.dp, height = 15.dp)
-                                                            .background(NordGreen.copy(alpha = caretAlpha))
+                                                            .size(width = 2.dp, height = 15.dp)
+                                                            .background(if (cursorVisible) NordGreen else Color.Transparent)
 
                                                         Box(modifier = caretModifier)
-                                                        innerTextField()
                                                     }
                                                 }
                                             }
