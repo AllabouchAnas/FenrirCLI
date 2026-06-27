@@ -70,8 +70,8 @@ import kotlinx.coroutines.launch
 
 // ── Shared visual constants ───────────────────────────────────────────────────
 
-private val KEY_SHAPE          = RoundedCornerShape(7.dp)
-private val DEFAULT_KEY_HEIGHT = 38.dp
+private val KEY_SHAPE          = RoundedCornerShape(8.dp)
+private val DEFAULT_KEY_HEIGHT = 48.dp
 private val BORDER_WIDTH       = 0.5.dp
 private val BORDER_IDLE        = NordNight3.copy(alpha = 0.7f)
 
@@ -108,7 +108,7 @@ internal fun FenrirKey(
     textColor: Color = NordSnow0,
     accentColor: Color? = null,
     background: Color = NordNight1,
-    fontSize: TextUnit = 14.sp,
+    fontSize: TextUnit = 17.sp,
     height: Dp = DEFAULT_KEY_HEIGHT,
     a11yLabel: String = label,
     onTap: () -> Unit,
@@ -265,7 +265,7 @@ internal fun FenrirRepeatKey(
             text  = label,
             style = TextStyle(
                 fontFamily = TerminalFont,
-                fontSize   = 14.sp,
+                fontSize   = 16.sp,
                 color      = accentColor,
                 textAlign  = TextAlign.Center,
             ),
@@ -378,7 +378,7 @@ internal fun FenrirShiftKey(
                 text  = if (shiftState == ShiftState.CAPS_LOCK) "⇪" else "⇧",
                 style = TextStyle(
                     fontFamily = TerminalFont,
-                    fontSize   = 14.sp,
+                    fontSize   = 16.sp,
                     color      = if (shiftState.isActive) NordFrost1 else NordSnow0,
                     textAlign  = TextAlign.Center,
                 ),
@@ -414,7 +414,7 @@ internal fun KeyRow(
     labelOf: (KeyDefinition) -> String = { it.label },
     keyHeight: Dp = DEFAULT_KEY_HEIGHT,
     defaultTextColor: Color = NordSnow0,
-    fontSize: TextUnit = 14.sp,
+    fontSize: TextUnit = 17.sp,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
