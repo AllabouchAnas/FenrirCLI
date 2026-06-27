@@ -20,9 +20,12 @@ package com.terminal.rootnode
  */
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.TextFieldValue
+
 import com.terminal.rootnode.keyboard.FenrirKeyboardContent
 import com.terminal.rootnode.keyboard.KeyboardController
 
@@ -79,14 +82,11 @@ fun FenrirKeyboard(
 /**
  * Creates and remembers a [KeyboardController] across recompositions.
  *
- * The controller captures the latest versions of all callbacks via the lambda
- * closures — so stale references are never a problem even if the parent
- * recomposes.
+ * All callbacks are wrapped in [rememberUpdatedState] so the controller always
+ * invokes the LATEST version of each lambda — even after recomposition.
  *
- * Note: [getValue] is a lambda (not a State) because [TextFieldValue] changes
- * frequently and we want the controller to always read the freshest value at
- * action time without triggering unnecessary recompositions in the controller
- * itself.
+ * Without this, `getValue` would permanently capture the TextFieldValue from
+ * the FIRST composition, causing every insertion to overwrite from position 0.
  */
 @Composable
 private fun rememberKeyboardController(
@@ -96,40 +96,23 @@ private fun rememberKeyboardController(
     onHistoryUp: () -> String?,
     onHistoryDown: () -> String,
 ): KeyboardController {
-    // The controller is stable — remembered for the lifetime of the composition.
-    // Callbacks are re-wrapped each recomposition so the controller always
-    // calls the latest version.
+    // rememberUpdatedState wraps each param in a State<T> that always holds
+    // the latest value. The lambdas below capture the State objects (stable),
+    // so reading from them at call-time is always fresh.
+    val latestGetValue      by rememberUpdatedState(getValue)
+    val latestOnValueChange by rememberUpdatedState(onValueChange)
+    val latestOnEnter       by rememberUpdatedState(onEnter)
+    val latestOnHistoryUp   by rememberUpdatedState(onHistoryUp)
+    val latestOnHistoryDown by rememberUpdatedState(onHistoryDown)
+
     return remember {
         KeyboardController(
-            getValue      = getValue,
-            onValueChange = onValueChange,
-            onEnter       = onEnter,
-            onHistoryUp   = onHistoryUp,
-            onHistoryDown = onHistoryDown,
+            getValue      = { latestGetValue() },
+            onValueChange = { latestOnValueChange(it) },
+            onEnter       = { latestOnEnter() },
+            onHistoryUp   = { latestOnHistoryUp() },
+            onHistoryDown = { latestOnHistoryDown() },
         )
-    }.also { ctrl ->
-        // Keep the controller's callback references fresh after each recomposition.
-        // This is achieved by passing lambdas that delegate to the latest captured values.
-        // (The controller reads these lazily via its stored references.)
-        // No extra work needed here because KeyboardController stores the lambdas
-        // directly from the constructor. To update them on recomposition we use a
-        // wrapper approach — see note below.
     }
 }
 
-/*
- Developer note on callback freshness:
- ──────────────────────────────────────
- KeyboardController stores the callbacks as constructor parameters.
- Because `remember { }` only runs once, subsequent recompositions with
- new lambdas will NOT update those stored references automatically.
-
- This is acceptable here because:
-   a) `getValue` is a lambda that captures `value` by reference from the
-      parent composable's closure, so it always reads the current value.
-   b) `onValueChange`, `onEnter`, `onHistoryUp`, `onHistoryDown` are
-      typically stable references from a ViewModel and don't change.
-
- If you pass unstable lambdas, wrap them in `rememberUpdatedState` in the
- parent composable before passing down.
-*/
