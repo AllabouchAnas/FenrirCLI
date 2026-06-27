@@ -2,11 +2,20 @@ package com.terminal.rootnode
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.speech.RecognizerIntent
 import android.widget.Toast
+import android.os.BatteryManager
+import android.os.Environment
+import android.os.StatFs
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,11 +40,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -66,6 +78,7 @@ import java.util.Date
 import java.util.Locale
 
 @SuppressLint("MissingPermission")
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
     val history by viewModel.history.collectAsState()
@@ -73,6 +86,80 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
     val inlineSuggestion by viewModel.inlineSuggestion.collectAsState()
     var input by remember { mutableStateOf(TextFieldValue("")) }
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var showCustomKeyboard by remember { mutableStateOf(false) }
+    val softKeyboardController = LocalSoftwareKeyboardController.current
+
+    val context = LocalContext.current
+
+    // Startup permission launcher
+    val startupPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { permissions ->
+            // Startup permissions response
+        }
+    )
+
+    // On-demand permission launcher
+    val onDemandPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                viewModel.onPermissionGranted(context)
+            } else {
+                viewModel.onPermissionDenied()
+            }
+        }
+    )
+
+    // Awake Screen lock management via DisposableEffect
+    val awakeLocked by viewModel.awakeLocked.collectAsState()
+    DisposableEffect(awakeLocked) {
+        val activity = context as? Activity
+        val window = activity?.window
+        if (window != null) {
+            if (awakeLocked) {
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+        onDispose {
+            // Cleanup on dispose
+        }
+    }
+
+    // React to permission request trigger from ViewModel
+    val permissionToRequest by viewModel.permissionRequestTrigger.collectAsState()
+    LaunchedEffect(permissionToRequest) {
+        val perm = permissionToRequest
+        if (perm != null) {
+            onDemandPermissionLauncher.launch(perm)
+            viewModel.clearPermissionRequestTrigger()
+        }
+    }
+
+    // Startup permission trigger
+    LaunchedEffect(Unit) {
+        val permissionsToRequest = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(
+                android.Manifest.permission.CALL_PHONE,
+                android.Manifest.permission.READ_MEDIA_IMAGES
+            )
+        } else {
+            arrayOf(
+                android.Manifest.permission.CALL_PHONE,
+                android.Manifest.permission.READ_EXTERNAL_STORAGE
+            )
+        }
+        
+        val ungranted = permissionsToRequest.filter {
+            context.checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        }.toTypedArray()
+        
+        if (ungranted.isNotEmpty()) {
+            startupPermissionLauncher.launch(ungranted)
+        }
+    }
 
     val speechRecognizerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
@@ -99,7 +186,6 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
     }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
 
     val adaptiveInfo = currentWindowAdaptiveInfo()
@@ -118,6 +204,24 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
         viewModel.loadApps(context)
         viewModel.initDatabase(context)
         focusRequester.requestFocus()
+    }
+
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context, intent: Intent) {
+                viewModel.loadApps(ctx)
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addDataScheme("package")
+        }
+        context.registerReceiver(receiver, filter)
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
     }
 
     // Auto-scroll to bottom whenever history changes — instant to avoid jank during typing
@@ -156,7 +260,11 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                detectTapGestures(onTap = { focusRequester.requestFocus() })
+                detectTapGestures(onTap = {
+                    focusRequester.requestFocus()
+                    showCustomKeyboard = true
+                    softKeyboardController?.hide()
+                })
             }
             .background(if (isBlurEnabled) Color.Transparent else NordNight0)
     ) {
@@ -246,32 +354,44 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                             )
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        // Output history
+                        // Output history — tapping dismisses the keyboard
                         LazyColumn(
                             modifier = Modifier
                                 .weight(1f)
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .pointerInput(Unit) {
+                                    detectTapGestures(onTap = {
+                                        showCustomKeyboard = false
+                                        focusRequester.requestFocus()
+                                    })
+                                },
                             state = listState,
                             verticalArrangement = Arrangement.Top
                         ) {
                             items(history) { line ->
-                                if (line.type == "neofetch") {
-                                    NeofetchBanner(
-                                        bannerText = line.text,
-                                        wolfLines = viewModel.trimmedWolfLines
-                                    )
-                                } else {
-                                    val isBraille = line.text.any { it.code in 0x2800..0x28FF }
-                                    Text(
-                                        text = line.text,
-                                        style = if (isBraille) {
-                                            TerminalBrailleTextStyle.copy(color = line.color ?: NordGreen)
-                                        } else {
-                                            TerminalNormalTextStyle.copy(color = line.color ?: NordGreen)
-                                        },
-                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                                        softWrap = false
-                                    )
+                                when (line.type) {
+                                    "neofetch" -> {
+                                        NeofetchBanner(
+                                            bannerText = line.text,
+                                            wolfLines = viewModel.trimmedWolfLines
+                                        )
+                                    }
+                                    "sysinfo" -> {
+                                        SysInfoPanel()
+                                    }
+                                    else -> {
+                                        val isBraille = line.text.any { it.code in 0x2800..0x28FF }
+                                        Text(
+                                            text = line.text,
+                                            style = if (isBraille) {
+                                                TerminalBrailleTextStyle.copy(color = line.color ?: NordGreen)
+                                            } else {
+                                                TerminalNormalTextStyle.copy(color = line.color ?: NordGreen)
+                                            },
+                                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                            softWrap = false
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -347,66 +467,79 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                     )
                                 )
                                 Box(modifier = Modifier.weight(1f)) {
-                                    BasicTextField(
-                                        value = input,
-                                        onValueChange = {
-                                            input = it
-                                            viewModel.onInputChange(it.text)
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .focusRequester(focusRequester),
-                                        textStyle = TerminalNormalTextStyle.copy(
-                                            color = NordGreen
-                                        ),
-                                        cursorBrush = SolidColor(Color.Transparent),
-                                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                        keyboardActions = KeyboardActions(
-                                            onDone = {
-                                                if (input.text.isNotBlank()) {
-                                                    viewModel.processCommand(context, input.text)
-                                                    input = TextFieldValue("")
-                                                    coroutineScope.launch {
-                                                        if (history.isNotEmpty()) {
-                                                            listState.animateScrollToItem(history.size - 1)
+                                    // InterceptPlatformTextInput severs the IME connection
+                                    // at the source — the system keyboard never opens
+                                    InterceptPlatformTextInput(
+                                        interceptor = { _, _ -> kotlinx.coroutines.awaitCancellation() }
+                                    ) {
+                                        BasicTextField(
+                                            value = input,
+                                            onValueChange = {
+                                                input = it
+                                                viewModel.onInputChange(it.text)
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .focusRequester(focusRequester)
+                                                .onFocusChanged { state ->
+                                                    if (state.isFocused) {
+                                                        showCustomKeyboard = true
+                                                    }
+                                                },
+                                            textStyle = TerminalNormalTextStyle.copy(
+                                                color = NordGreen
+                                            ),
+                                            cursorBrush = SolidColor(Color.Transparent),
+                                            keyboardOptions = KeyboardOptions(
+                                                imeAction = ImeAction.Done
+                                            ),
+                                            keyboardActions = KeyboardActions(
+                                                onDone = {
+                                                    if (input.text.isNotBlank()) {
+                                                        viewModel.processCommand(context, input.text)
+                                                        input = TextFieldValue("")
+                                                        coroutineScope.launch {
+                                                            if (history.isNotEmpty()) {
+                                                                listState.animateScrollToItem(history.size - 1)
+                                                            }
                                                         }
                                                     }
                                                 }
-                                            }
-                                        ),
-                                        onTextLayout = { textLayoutResult = it },
-                                        decorationBox = { innerTextField ->
-                                            Box(contentAlignment = Alignment.CenterStart) {
-                                                if (inlineSuggestion.isNotEmpty() && input.text.isNotEmpty()) {
-                                                    Text(
-                                                        text = input.text + inlineSuggestion,
-                                                        style = TerminalNormalTextStyle.copy(
-                                                            color = NordGreen.copy(alpha = 0.3f)
+                                            ),
+                                            onTextLayout = { textLayoutResult = it },
+                                            decorationBox = { innerTextField ->
+                                                Box(contentAlignment = Alignment.CenterStart) {
+                                                    if (inlineSuggestion.isNotEmpty() && input.text.isNotEmpty()) {
+                                                        Text(
+                                                            text = input.text + inlineSuggestion,
+                                                            style = TerminalNormalTextStyle.copy(
+                                                                color = NordGreen.copy(alpha = 0.3f)
+                                                            )
                                                         )
-                                                    )
-                                                }
+                                                    }
 
-                                                Box(modifier = Modifier.fillMaxWidth()) {
-                                                    // Custom block caret drawn behind the text so characters remain readable
-                                                    val density = LocalDensity.current
-                                                    val caretModifier = cursorRect?.let { rect ->
-                                                        val leftDp = with(density) { rect.left.toDp() }
-                                                        val topDp = with(density) { rect.top.toDp() }
-                                                        val heightDp = with(density) { rect.height.toDp() }
-                                                        Modifier
-                                                            .offset(x = leftDp, y = topDp)
-                                                            .size(width = 8.dp, height = heightDp)
+                                                    Box(modifier = Modifier.fillMaxWidth()) {
+                                                        // Custom block caret drawn behind the text so characters remain readable
+                                                        val density = LocalDensity.current
+                                                        val caretModifier = cursorRect?.let { rect ->
+                                                            val leftDp = with(density) { rect.left.toDp() }
+                                                            val topDp = with(density) { rect.top.toDp() }
+                                                            val heightDp = with(density) { rect.height.toDp() }
+                                                            Modifier
+                                                                .offset(x = leftDp, y = topDp)
+                                                                .size(width = 8.dp, height = heightDp)
+                                                                .background(NordGreen.copy(alpha = caretAlpha))
+                                                        } ?: Modifier
+                                                            .size(width = 8.dp, height = 15.dp)
                                                             .background(NordGreen.copy(alpha = caretAlpha))
-                                                    } ?: Modifier
-                                                        .size(width = 8.dp, height = 15.dp)
-                                                        .background(NordGreen.copy(alpha = caretAlpha))
 
-                                                    Box(modifier = caretModifier)
-                                                    innerTextField()
+                                                        Box(modifier = caretModifier)
+                                                        innerTextField()
+                                                    }
                                                 }
                                             }
-                                        }
-                                    )
+                                        )
+                                    } // end InterceptPlatformTextInput
                                 }
                                 // ✦ Sparkle button
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -441,6 +574,34 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                         }
 
                         Spacer(modifier = Modifier.height(4.dp))
+
+                        // ── FenrirKeyboard (in-app custom keyboard) ────────
+                        AnimatedVisibility(
+                            visible = showCustomKeyboard,
+                            enter = slideInVertically(initialOffsetY = { it }),
+                            exit = slideOutVertically(targetOffsetY = { it })
+                        ) {
+                            FenrirKeyboard(
+                                value = input,
+                                onValueChange = { newValue ->
+                                    input = newValue
+                                    viewModel.onInputChange(newValue.text)
+                                },
+                                onEnter = {
+                                    if (input.text.isNotBlank()) {
+                                        viewModel.processCommand(context, input.text)
+                                        input = TextFieldValue("")
+                                        coroutineScope.launch {
+                                            if (history.isNotEmpty()) {
+                                                listState.animateScrollToItem(history.size - 1)
+                                            }
+                                        }
+                                    }
+                                },
+                                onHistoryUp   = { viewModel.historyUp() },
+                                onHistoryDown = { viewModel.historyDown() }
+                            )
+                        }
                     }
                 }
             }
@@ -450,24 +611,71 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
 
 @Composable
 fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
-    // Parse the encoded info: "NEOFETCH_BANNER|osVersion|apiLevel|model|uptime|ram|storage|battery"
     val parts = bannerText.split("|")
     val osVersion = parts.getOrNull(1) ?: "?"
     val apiLevel = parts.getOrNull(2) ?: "?"
     val model = parts.getOrNull(3) ?: "?"
-    val uptime = parts.getOrNull(4) ?: "Unknown"
-    val ram = parts.getOrNull(5) ?: "Unknown"
-    val storage = parts.getOrNull(6) ?: "Unknown"
-    val battery = parts.getOrNull(7) ?: "Unknown"
+
+    val context = LocalContext.current
+    var liveUptime by remember { mutableStateOf("") }
+    var liveRam by remember { mutableStateOf("") }
+    var liveStorage by remember { mutableStateOf("") }
+    var liveBattery by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            // Uptime
+            val uptimeMs = android.os.SystemClock.elapsedRealtime()
+            val hours = uptimeMs / (1000 * 60 * 60)
+            val minutes = (uptimeMs / (1000 * 60)) % 60
+            liveUptime = if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+
+            // RAM
+            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+            liveRam = if (activityManager != null) {
+                val memoryInfo = android.app.ActivityManager.MemoryInfo()
+                activityManager.getMemoryInfo(memoryInfo)
+                val totalRam = memoryInfo.totalMem / (1024 * 1024 * 1024.0)
+                val availRam = memoryInfo.availMem / (1024 * 1024 * 1024.0)
+                val usedRam = totalRam - availRam
+                val percent = (usedRam / totalRam * 100).toInt()
+                "%.1fG / %.1fG ($percent%%)".format(usedRam, totalRam)
+            } else "Unknown"
+
+            // Storage
+            val path = Environment.getDataDirectory()
+            val stat = StatFs(path.path)
+            val blockSize = stat.blockSizeLong
+            val availableBlocks = stat.availableBlocksLong
+            val totalBlocks = stat.blockCountLong
+            val totalStorage = (totalBlocks * blockSize) / (1024 * 1024 * 1024.0)
+            val availStorage = (availableBlocks * blockSize) / (1024 * 1024 * 1024.0)
+            val usedStorage = totalStorage - availStorage
+            val storagePercent = (usedStorage / totalStorage * 100).toInt()
+            liveStorage = "%.1fG / %.1fG ($storagePercent%%)".format(usedStorage, totalStorage)
+
+            // Battery
+            val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            val batteryStatus = context.registerReceiver(null, ifilter)
+            val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+            val batteryLevel = if (level >= 0 && scale > 0) (level * 100 / scale.toFloat()).toInt() else -1
+            val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+            liveBattery = "$batteryLevel%${if (isCharging) " (charging)" else " (discharging)"}"
+
+            kotlinx.coroutines.delay(2000)
+        }
+    }
 
     val infoLines = listOf(
         Triple("OS", "Android $osVersion (API $apiLevel)", NordYellow),
         Triple("DEVICE", model, NordYellow),
         Triple("SHELL", "FenrirCLI v1.0", NordFrost1),
-        Triple("UPTIME", uptime, NordFrost1),
-        Triple("RAM", ram, NordYellow),
-        Triple("STORAGE", storage, NordYellow),
-        Triple("BATTERY", battery, NordPurple),
+        Triple("UPTIME", liveUptime, NordFrost1),
+        Triple("RAM", liveRam, NordYellow),
+        Triple("STORAGE", liveStorage, NordYellow),
+        Triple("BATTERY", liveBattery, NordPurple),
     )
 
     Row(
@@ -527,6 +735,79 @@ fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun SysInfoPanel() {
+    val context = LocalContext.current
+    var liveUptime by remember { mutableStateOf("") }
+    var liveRam by remember { mutableStateOf("") }
+    var liveStorage by remember { mutableStateOf("") }
+    var liveBattery by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            // Uptime
+            val uptimeMs = android.os.SystemClock.elapsedRealtime()
+            val hours = uptimeMs / (1000 * 60 * 60)
+            val minutes = (uptimeMs / (1000 * 60)) % 60
+            liveUptime = if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+
+            // RAM
+            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+            liveRam = if (activityManager != null) {
+                val memoryInfo = android.app.ActivityManager.MemoryInfo()
+                activityManager.getMemoryInfo(memoryInfo)
+                val totalRam = memoryInfo.totalMem / (1024 * 1024 * 1024.0)
+                val availRam = memoryInfo.availMem / (1024 * 1024 * 1024.0)
+                val usedRam = totalRam - availRam
+                val percent = (usedRam / totalRam * 100).toInt()
+                "%.1fG / %.1fG ($percent%%)".format(usedRam, totalRam)
+            } else "Unknown"
+
+            // Storage
+            val path = Environment.getDataDirectory()
+            val stat = StatFs(path.path)
+            val blockSize = stat.blockSizeLong
+            val availableBlocks = stat.availableBlocksLong
+            val totalBlocks = stat.blockCountLong
+            val totalStorage = (totalBlocks * blockSize) / (1024 * 1024 * 1024.0)
+            val availStorage = (availableBlocks * blockSize) / (1024 * 1024 * 1024.0)
+            val usedStorage = totalStorage - availStorage
+            val storagePercent = (usedStorage / totalStorage * 100).toInt()
+            liveStorage = "%.1fG / %.1fG ($storagePercent%%)".format(usedStorage, totalStorage)
+
+            // Battery
+            val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            val batteryStatus = context.registerReceiver(null, ifilter)
+            val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+            val batteryLevel = if (level >= 0 && scale > 0) (level * 100 / scale.toFloat()).toInt() else -1
+            val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+            liveBattery = "$batteryLevel%${if (isCharging) " (charging)" else " (discharging)"}"
+
+            kotlinx.coroutines.delay(2000)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Text("┌──────────────────────────────────────────┐", style = TerminalNormalTextStyle.copy(color = NordFrost1))
+        Text("│             SYSTEM STATUS                │", style = TerminalNormalTextStyle.copy(color = NordFrost1))
+        Text("├──────────────────────────────────────────┤", style = TerminalNormalTextStyle.copy(color = NordFrost1))
+        Text("│ OS VERSION : Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})", style = TerminalNormalTextStyle.copy(color = NordSnow0))
+        Text("│ HARDWARE   : ${android.os.Build.MODEL}", style = TerminalNormalTextStyle.copy(color = NordSnow0))
+        Text("│ SHELL BUILD: FenrirCLI v1.0.0", style = TerminalNormalTextStyle.copy(color = NordSnow0))
+        Text("│ UPTIME     : $liveUptime", style = TerminalNormalTextStyle.copy(color = NordSnow0))
+        Text("│ RAM RATIO  : $liveRam", style = TerminalNormalTextStyle.copy(color = NordSnow0))
+        Text("│ STORAGE    : $liveStorage", style = TerminalNormalTextStyle.copy(color = NordSnow0))
+        Text("│ BATTERY    : $liveBattery", style = TerminalNormalTextStyle.copy(color = NordSnow0))
+        Text("└──────────────────────────────────────────┘", style = TerminalNormalTextStyle.copy(color = NordFrost1))
     }
 }
 
