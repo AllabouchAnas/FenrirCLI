@@ -61,6 +61,9 @@ class TerminalViewModel : ViewModel() {
     private val _awakeLocked = MutableStateFlow(false)
     val awakeLocked: StateFlow<Boolean> = _awakeLocked.asStateFlow()
 
+    private val _terminalFontSize = MutableStateFlow(14)
+    val terminalFontSize: StateFlow<Int> = _terminalFontSize.asStateFlow()
+
     private val _permissionRequestTrigger = MutableStateFlow<String?>(null)
     val permissionRequestTrigger: StateFlow<String?> = _permissionRequestTrigger.asStateFlow()
 
@@ -179,6 +182,7 @@ class TerminalViewModel : ViewModel() {
             hiddenPackages.addAll(hidden)
             
             _awakeLocked.value = sharedPrefs.getBoolean("awake_locked", false)
+            _terminalFontSize.value = sharedPrefs.getInt("terminal_font_size", 14)
             
             startup(context)
         }
@@ -249,6 +253,8 @@ class TerminalViewModel : ViewModel() {
         "exit" to "Syntax: exit\nDescription: Exits FenrirCLI to the original phone launcher activity.",
         "default" to "Syntax: default\nDescription: Opens system settings to configure the default home/launcher application.",
         "awake" to "Syntax: awake [lock | unlock | on | off]\nDescription: Sets the screen awake mode. When locked or on, the screen will never go to sleep while inside FenrirCLI.",
+        "font" to "Syntax: font [size (10-30) | reset]\nDescription: Sets the terminal console text size in sp units, or resets it to the default (14sp).\nExample: font 16",
+        "fontsize" to "Syntax: fontsize [size (10-30) | reset]\nDescription: Sets the terminal console text size in sp units, or resets it to the default (14sp).\nExample: fontsize 16",
         "version" to "Syntax: version\nDescription: Displays the current version, open source license flag, and the official GitHub repository link.",
         "ls" to "Syntax: ls\nDescription: Loops through the device's PackageManager to return a clean, alphabetized list of launchable user-installed apps. Hidden apps are skipped.",
         "sysinfo" to "Syntax: sysinfo\nDescription: Queries and shows hardware specs (OS version, device model, build version, uptime, live RAM ratio, storage allocations, and battery status).",
@@ -407,6 +413,10 @@ class TerminalViewModel : ViewModel() {
                 setAwake(context, args)
                 onComplete(true)
             }
+            "font", "fontsize" -> {
+                setFontSize(context, args)
+                onComplete(true)
+            }
             "help" -> {
                 showHelp(args.ifEmpty { null })
                 onComplete(true)
@@ -561,6 +571,7 @@ class TerminalViewModel : ViewModel() {
         addToHistory("  exit          - Exit to original phone launcher", NordSnow0)
         addToHistory("  default       - Select default launcher settings", NordSnow0)
         addToHistory("  awake [<val>] - Keep screen awake (lock/unlock/on/off)", NordSnow0)
+        addToHistory("  fontsize [s]  - Change console text font size (or 'font')", NordSnow0)
         addToHistory("  ls            - List user launchable installed apps", NordSnow0)
         addToHistory("  sysinfo       - Query hardware, storage, uptime, battery", NordSnow0)
         addToHistory("  neofetch      - Render banner art and hardware specs", NordSnow0)
@@ -1000,6 +1011,34 @@ class TerminalViewModel : ViewModel() {
             "Awakeness set to unlocked. Screen will go to sleep normally."
         }
         addToHistory(msg, NordGreen)
+    }
+
+    private fun setFontSize(context: Context, arg: String) {
+        val cleanArg = arg.trim().lowercase()
+        val sharedPrefs = context.getSharedPreferences("fenrir_prefs", Context.MODE_PRIVATE)
+
+        if (cleanArg.isEmpty()) {
+            addToHistory("Current terminal font size: ${_terminalFontSize.value}sp", NordFrost1)
+            addToHistory("Usage: fontsize [size (10-30) | reset]", NordPurple)
+            return
+        }
+
+        if (cleanArg == "reset") {
+            _terminalFontSize.value = 14
+            sharedPrefs.edit().putInt("terminal_font_size", 14).apply()
+            addToHistory("Font size reset to default (14sp).", NordGreen)
+            return
+        }
+
+        val size = cleanArg.toIntOrNull()
+        if (size == null || size < 10 || size > 30) {
+            addToHistory("Invalid size. Please specify an integer between 10 and 30.", NordRed)
+            return
+        }
+
+        _terminalFontSize.value = size
+        sharedPrefs.edit().putInt("terminal_font_size", size).apply()
+        addToHistory("Font size set to ${size}sp.", NordGreen)
     }
 
     private fun getProgressBar(percent: Int): String {

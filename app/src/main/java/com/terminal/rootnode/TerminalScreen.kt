@@ -85,6 +85,21 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
     val history by viewModel.history.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
     val inlineSuggestion by viewModel.inlineSuggestion.collectAsState()
+    val terminalFontSize by viewModel.terminalFontSize.collectAsState()
+
+    val terminalNormalStyle = remember(terminalFontSize) {
+        TerminalNormalTextStyle.copy(
+            fontSize = terminalFontSize.sp,
+            lineHeight = (terminalFontSize * 1.43f).sp
+        )
+    }
+    val terminalInfoStyle = remember(terminalFontSize) {
+        TerminalInfoTextStyle.copy(
+            fontSize = (terminalFontSize - 2).coerceAtLeast(10).sp,
+            lineHeight = ((terminalFontSize - 2) * 1.43f).sp
+        )
+    }
+
     var input by remember { mutableStateOf(TextFieldValue("")) }
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var showCustomKeyboard by remember { mutableStateOf(false) }
@@ -387,7 +402,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                             style = if (isBraille) {
                                                 TerminalBrailleTextStyle.copy(color = line.color ?: NordGreen)
                                             } else {
-                                                TerminalNormalTextStyle.copy(color = line.color ?: NordGreen)
+                                                terminalNormalStyle.copy(color = line.color ?: NordGreen)
                                             },
                                             modifier = Modifier.horizontalScroll(rememberScrollState()),
                                             softWrap = false
@@ -431,7 +446,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                     ) {
                                         Text(
                                             text = suggestion,
-                                            style = TerminalInfoTextStyle.copy(
+                                            style = terminalInfoStyle.copy(
                                                 color = NordGreen
                                             )
                                         )
@@ -462,8 +477,8 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                 // Prompt prefix
                                 Text(
                                     text = "> root@fenrir:~$ ",
-                                    style = TerminalNormalTextStyle.copy(
-                                        fontSize = 12.sp,
+                                    style = terminalNormalStyle.copy(
+                                        fontSize = (terminalFontSize - 2).coerceAtLeast(10).sp,
                                         color = NordGreen.copy(alpha = 0.8f)
                                     )
                                 )
@@ -495,7 +510,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                         }
                                                     }
                                                 },
-                                            textStyle = TerminalNormalTextStyle.copy(
+                                            textStyle = terminalNormalStyle.copy(
                                                 color = NordGreen
                                             ),
                                             cursorBrush = SolidColor(Color.Transparent),
@@ -521,7 +536,7 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
                                                     if (inlineSuggestion.isNotEmpty() && input.text.isNotEmpty()) {
                                                         Text(
                                                             text = input.text + inlineSuggestion,
-                                                            style = TerminalNormalTextStyle.copy(
+                                                            style = terminalNormalStyle.copy(
                                                                 color = NordGreen.copy(alpha = 0.3f)
                                                             )
                                                         )
@@ -619,7 +634,25 @@ fun TerminalScreen(viewModel: TerminalViewModel = viewModel()) {
 }
 
 @Composable
-fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
+fun NeofetchBanner(
+    bannerText: String,
+    wolfLines: List<String>,
+    viewModel: TerminalViewModel = viewModel()
+) {
+    val terminalFontSize by viewModel.terminalFontSize.collectAsState()
+    val terminalNormalStyle = remember(terminalFontSize) {
+        TerminalNormalTextStyle.copy(
+            fontSize = terminalFontSize.sp,
+            lineHeight = (terminalFontSize * 1.43f).sp
+        )
+    }
+    val terminalInfoStyle = remember(terminalFontSize) {
+        TerminalInfoTextStyle.copy(
+            fontSize = (terminalFontSize - 2).coerceAtLeast(10).sp,
+            lineHeight = ((terminalFontSize - 2) * 1.43f).sp
+        )
+    }
+
     val parts = bannerText.split("|")
     val osVersion = parts.getOrNull(1) ?: "?"
     val apiLevel = parts.getOrNull(2) ?: "?"
@@ -715,14 +748,14 @@ fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
         ) {
             Text(
                 text = "root@fenrir",
-                style = TerminalNormalTextStyle.copy(
+                style = terminalNormalStyle.copy(
                     color = NordGreen,
                     letterSpacing = 0.5.sp
                 )
             )
             Text(
                 text = "─".repeat(14),
-                style = TerminalInfoTextStyle.copy(
+                style = terminalInfoStyle.copy(
                     color = NordNight3
                 )
             )
@@ -730,13 +763,13 @@ fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
                 Row {
                     Text(
                         text = "$key: ",
-                        style = TerminalInfoTextStyle.copy(
+                        style = terminalInfoStyle.copy(
                             color = NordFrost1
                         )
                     )
                     Text(
                         text = value,
-                        style = TerminalInfoTextStyle.copy(
+                        style = terminalInfoStyle.copy(
                             color = color
                         ),
                         softWrap = true
@@ -748,7 +781,17 @@ fun NeofetchBanner(bannerText: String, wolfLines: List<String>) {
 }
 
 @Composable
-fun SysInfoPanel() {
+fun SysInfoPanel(
+    viewModel: TerminalViewModel = viewModel()
+) {
+    val terminalFontSize by viewModel.terminalFontSize.collectAsState()
+    val terminalNormalStyle = remember(terminalFontSize) {
+        TerminalNormalTextStyle.copy(
+            fontSize = terminalFontSize.sp,
+            lineHeight = (terminalFontSize * 1.43f).sp
+        )
+    }
+
     val context = LocalContext.current
     var liveUptime by remember { mutableStateOf("") }
     var liveRam by remember { mutableStateOf("") }
@@ -806,17 +849,17 @@ fun SysInfoPanel() {
             .fillMaxWidth()
             .padding(vertical = 4.dp)
     ) {
-        Text("┌──────────────────────────────────────────┐", style = TerminalNormalTextStyle.copy(color = NordFrost1))
-        Text("│             SYSTEM STATUS                │", style = TerminalNormalTextStyle.copy(color = NordFrost1))
-        Text("├──────────────────────────────────────────┤", style = TerminalNormalTextStyle.copy(color = NordFrost1))
-        Text("│ OS VERSION : Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})", style = TerminalNormalTextStyle.copy(color = NordSnow0))
-        Text("│ HARDWARE   : ${android.os.Build.MODEL}", style = TerminalNormalTextStyle.copy(color = NordSnow0))
-        Text("│ SHELL BUILD: FenrirCLI v1.0.0", style = TerminalNormalTextStyle.copy(color = NordSnow0))
-        Text("│ UPTIME     : $liveUptime", style = TerminalNormalTextStyle.copy(color = NordSnow0))
-        Text("│ RAM RATIO  : $liveRam", style = TerminalNormalTextStyle.copy(color = NordSnow0))
-        Text("│ STORAGE    : $liveStorage", style = TerminalNormalTextStyle.copy(color = NordSnow0))
-        Text("│ BATTERY    : $liveBattery", style = TerminalNormalTextStyle.copy(color = NordSnow0))
-        Text("└──────────────────────────────────────────┘", style = TerminalNormalTextStyle.copy(color = NordFrost1))
+        Text("┌──────────────────────────────────────────┐", style = terminalNormalStyle.copy(color = NordFrost1))
+        Text("│             SYSTEM STATUS                │", style = terminalNormalStyle.copy(color = NordFrost1))
+        Text("├──────────────────────────────────────────┤", style = terminalNormalStyle.copy(color = NordFrost1))
+        Text("│ OS VERSION : Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})", style = terminalNormalStyle.copy(color = NordSnow0))
+        Text("│ HARDWARE   : ${android.os.Build.MODEL}", style = terminalNormalStyle.copy(color = NordSnow0))
+        Text("│ SHELL BUILD: FenrirCLI v1.0.0", style = terminalNormalStyle.copy(color = NordSnow0))
+        Text("│ UPTIME     : $liveUptime", style = terminalNormalStyle.copy(color = NordSnow0))
+        Text("│ RAM RATIO  : $liveRam", style = terminalNormalStyle.copy(color = NordSnow0))
+        Text("│ STORAGE    : $liveStorage", style = terminalNormalStyle.copy(color = NordSnow0))
+        Text("│ BATTERY    : $liveBattery", style = terminalNormalStyle.copy(color = NordSnow0))
+        Text("└──────────────────────────────────────────┘", style = terminalNormalStyle.copy(color = NordFrost1))
     }
 }
 
