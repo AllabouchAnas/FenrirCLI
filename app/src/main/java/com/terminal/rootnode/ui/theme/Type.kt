@@ -19,22 +19,22 @@ val TerminalFont: FontFamily = JetBrainsMono
 // Pre-defined static text styles to optimize recomposition performance
 val TerminalNormalTextStyle = TextStyle(
     fontFamily = TerminalFont,
-    fontSize = 15.sp,
-    lineHeight = 22.sp,
+    fontSize = 14.sp,
+    lineHeight = 20.sp,
     letterSpacing = 0.2.sp
 )
 
 val TerminalBrailleTextStyle = TextStyle(
     fontFamily = TerminalFont,
-    fontSize = 7.5.sp,
-    lineHeight = 8.sp,
+    fontSize = 7.sp,
+    lineHeight = 7.5.sp,
     letterSpacing = 0.sp
 )
 
 val TerminalInfoTextStyle = TextStyle(
     fontFamily = TerminalFont,
-    fontSize = 13.sp,
-    lineHeight = 19.sp,
+    fontSize = 12.sp,
+    lineHeight = 17.sp,
     letterSpacing = 0.2.sp
 )
 
@@ -42,50 +42,50 @@ val Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = TerminalFont,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
         letterSpacing = 0.3.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = TerminalFont,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
         letterSpacing = 0.2.sp
     ),
     bodySmall = TextStyle(
         fontFamily = TerminalFont,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 19.sp,
+        fontSize = 12.sp,
+        lineHeight = 17.sp,
         letterSpacing = 0.2.sp
     ),
     titleLarge = TextStyle(
         fontFamily = TerminalFont,
         fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
+        fontSize = 21.sp,
+        lineHeight = 27.sp,
         letterSpacing = 0.sp
     ),
     labelLarge = TextStyle(
         fontFamily = TerminalFont,
         fontWeight = FontWeight.Medium,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
         letterSpacing = 0.1.sp
     ),
     labelMedium = TextStyle(
         fontFamily = TerminalFont,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 19.sp,
+        fontSize = 12.sp,
+        lineHeight = 17.sp,
         letterSpacing = 0.3.sp
     ),
     labelSmall = TextStyle(
         fontFamily = TerminalFont,
         fontWeight = FontWeight.Normal,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
         letterSpacing = 0.3.sp
     )
 )

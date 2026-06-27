@@ -64,17 +64,17 @@ internal fun FenrirKeyboardContent(
         KeyRow(
             keys             = POWER_ROW,
             onDispatch       = dispatch,
-            keyHeight        = 40.dp,
+            keyHeight        = 35.dp,
             defaultTextColor = NordGreen,
-            fontSize         = 14.sp,
+            fontSize         = 13.sp,
         )
 
         // ── Terminal extras row (Esc, Home, arrows, End) ─────────────────────
         KeyRow(
             keys       = TERMINAL_ROW,
             onDispatch = dispatch,
-            keyHeight  = 40.dp,
-            fontSize   = 14.sp,
+            keyHeight  = 35.dp,
+            fontSize   = 13.sp,
         )
 
         // ── Main layer ────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ internal fun FenrirKeyboardContent(
                 label       = "⇥ Tab",
                 modifier    = Modifier.weight(1.5f),
                 accentColor = NordFrost1,
-                fontSize    = 15.sp,
+                fontSize    = 13.sp,
                 a11yLabel   = "Tab",
                 onTap       = { dispatch(KeyAction.Tab) },
             )
@@ -160,7 +160,7 @@ internal fun FenrirKeyboardContent(
                               else LAYER_TOGGLE_LABEL_ALPHA,
                 modifier    = Modifier.weight(1.3f),
                 accentColor = NordPurple,
-                fontSize    = 15.sp,
+                fontSize    = 13.sp,
                 a11yLabel   = "Switch keyboard layer",
                 onTap       = { dispatch(KeyAction.LayerToggle) },
             )
@@ -168,7 +168,7 @@ internal fun FenrirKeyboardContent(
                 label     = "space",
                 modifier  = Modifier.weight(3f),
                 textColor = NordSnow0.copy(alpha = 0.45f),
-                fontSize  = 15.sp,
+                fontSize  = 13.sp,
                 a11yLabel = "Space",
                 onTap     = { dispatch(KeyAction.Space) },
             )
@@ -176,7 +176,7 @@ internal fun FenrirKeyboardContent(
                 label       = "↑",
                 modifier    = Modifier.weight(1f),
                 accentColor = NordYellow,
-                fontSize    = 16.sp,
+                fontSize    = 14.sp,
                 a11yLabel   = "History up",
                 onTap       = { dispatch(KeyAction.HistoryUp) },
             )
@@ -184,7 +184,7 @@ internal fun FenrirKeyboardContent(
                 label       = "↓",
                 modifier    = Modifier.weight(1f),
                 accentColor = NordYellow,
-                fontSize    = 16.sp,
+                fontSize    = 14.sp,
                 a11yLabel   = "History down",
                 onTap       = { dispatch(KeyAction.HistoryDown) },
             )
@@ -193,7 +193,7 @@ internal fun FenrirKeyboardContent(
                 modifier    = Modifier.weight(1.5f),
                 accentColor = NordGreen,
                 background  = NordNight2,
-                fontSize    = 16.sp,
+                fontSize    = 14.sp,
                 a11yLabel   = "Enter",
                 onTap       = { dispatch(KeyAction.Enter) },
             )
